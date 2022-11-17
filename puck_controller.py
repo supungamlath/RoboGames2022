@@ -4,7 +4,7 @@ import sys
 sys.path.append("E:\Program Files\Webots\lib\controller\python39")
 
 from controller import Robot
-import json, csv, shutil, math
+import json, csv, shutil, math, time, webcolors
 from tempfile import NamedTemporaryFile
 from maze_solver import *
 
@@ -196,8 +196,8 @@ def turnRight():
         return turned_angle < expected_bearing
 
     while should_turn(orientation, expected_bearing):
-        left_motor.setVelocity(-TURN_SPEED)
-        right_motor.setVelocity(TURN_SPEED)
+        left_motor.setVelocity(TURN_SPEED)
+        right_motor.setVelocity(-TURN_SPEED)
         updatePosition()
 
     stopMotors()
@@ -243,7 +243,7 @@ def goFoward():
     target = round(target * 8) / 8
 
     def should_move(init_orien, target):
-        print(position[0], position[1], target)
+        # print(position[0], position[1], target)
         if init_orien == "N":
             return position[1] > target
         elif init_orien == "S":
@@ -261,6 +261,7 @@ def goFoward():
     stopMotors()
 
 def moveToNextCoord(current_coord, next_coord):
+    print("Moving from", current_coord, "to", next_coord)
     front_dir = getOrientation(position[2])
     if front_dir == "N":
         if next_coord[0] < current_coord[0]:
@@ -358,10 +359,33 @@ def getGoalCell():
     else:
         return (1,1)
 
-def setup():
+def closestColour(requested_colour):
+    min_colours = {}
+    for key, name in webcolors.html4_hex_to_names.items():
+        r_c, g_c, b_c = webcolors.hex_to_rgb(key)
+        rd = (r_c - requested_colour[0]) ** 2
+        gd = (g_c - requested_colour[1]) ** 2
+        bd = (b_c - requested_colour[2]) ** 2
+        min_colours[(rd + gd + bd)] = name
+    return min_colours[min(min_colours.keys())]
+
+def test():
     # turnLeft()
     turnLeft()
     goFoward()
+    turnLeft()
+    goFoward()
+    # goFoward()
+
+    image = camera.getImage()
+    blue = camera.imageGetBlue(image, camera.getWidth(), 26, 30)
+    green = camera.imageGetGreen(image, camera.getWidth(), 26, 30)
+    red = camera.imageGetRed(image, camera.getWidth(), 26, 30)
+    print("Blue:", blue, "Green:", green, "Red:", red)
+    named_color = closestColour((red,green,blue))
+    print(named_color)
+    
+    time.sleep(10000)
 
 
 ### Global variables ###
@@ -386,7 +410,7 @@ if __name__ == "__main__":
 
         # State 0: Idle
         if state == 0:
-            setup()
+            test()
             # if exchanger:
             #     exchanger_loc = worldToMazeCoords(exchanger)
             #     print("exchanger_loc", exchanger_loc)
