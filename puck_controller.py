@@ -161,7 +161,7 @@ class PuckController:
         # Wall is not present
         return 1
 
-    def getReceiverData(self):
+    def setTransmittedData(self):
         while self.receiver.getQueueLength() > 0:
             rec_data = json.loads(self.receiver.getData().decode("utf-8"))
             # print(rec_data)
@@ -300,51 +300,51 @@ class PuckController:
 
         self.stopMotors()
 
-    def moveToNextCell(self, current_coord, next_coord):
-        print("Moving from", current_coord, "to", next_coord)
+    def moveToNextCell(self, current_cell, next_cell):
+        print("Moving from", current_cell, "to", next_cell)
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
-            if next_coord[0] < current_coord[0]:
+            if next_cell[0] < current_cell[0]:
                 self.goFoward()
-            elif next_coord[0] > current_coord[0]:
+            elif next_cell[0] > current_cell[0]:
                 self.goBackward()
-            elif next_coord[1] > current_coord[1]:
+            elif next_cell[1] > current_cell[1]:
                 self.turnRight()
                 self.goFoward()
-            elif next_coord[1] < current_coord[1]:
+            elif next_cell[1] < current_cell[1]:
                 self.turnLeft()
                 self.goFoward()
         elif front_dir == "E":
-            if next_coord[1] > current_coord[1]:
+            if next_cell[1] > current_cell[1]:
                 self.goFoward()
-            elif next_coord[1] < current_coord[1]:
+            elif next_cell[1] < current_cell[1]:
                 self.goBackward()
-            elif next_coord[0] > current_coord[0]:
+            elif next_cell[0] > current_cell[0]:
                 self.turnRight()
                 self.goFoward()
-            elif next_coord[0] < current_coord[0]:
+            elif next_cell[0] < current_cell[0]:
                 self.turnLeft()
                 self.goFoward()
         elif front_dir == "S":
-            if next_coord[0] > current_coord[0]:
+            if next_cell[0] > current_cell[0]:
                 self.goFoward()
-            elif next_coord[0] < current_coord[0]:
+            elif next_cell[0] < current_cell[0]:
                 self.goBackward()
-            elif next_coord[1] < current_coord[1]:
+            elif next_cell[1] < current_cell[1]:
                 self.turnRight()
                 self.goFoward()
-            elif next_coord[1] > current_coord[1]:
+            elif next_cell[1] > current_cell[1]:
                 self.turnLeft()
                 self.goFoward()
         elif front_dir == "W":
-            if next_coord[1] < current_coord[1]:
+            if next_cell[1] < current_cell[1]:
                 self.goFoward()
-            elif next_coord[1] > current_coord[1]:
+            elif next_cell[1] > current_cell[1]:
                 self.goBackward()
-            elif next_coord[0] < current_coord[0]:
+            elif next_cell[0] < current_cell[0]:
                 self.turnRight()
                 self.goFoward()
-            elif next_coord[0] > current_coord[0]:
+            elif next_cell[0] > current_cell[0]:
                 self.turnLeft()
                 self.goFoward()
 
@@ -462,37 +462,25 @@ class PuckController:
             self.goal = (9,4)
             self.maze.solveMaze(current_cell, self.goal)
 
+    def getCurrentCell(self):
+        return self.worldCoordToMazeCell((self.position[0], self.position[1]))
 
-    def test(self):
-        self.turnLeft()
-        self.goFoward()
-        self.turnLeft()
-        self.goFoward()
-
-        image = self.camera.getImage()
-        width = self.camera.getWidth()
-        blue = self.camera.imageGetBlue(image, width, 26, 30)
-        green = self.camera.imageGetGreen(image, width, 26, 30)
-        red = self.camera.imageGetRed(image, width, 26, 30)
-        print("Blue:", blue, "Green:", green, "Red:", red)
-        
-        time.sleep(10000)
+    def calibrate(self):
+        pass
 
     ### Main function ###
     def run(self):
         state = 1
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
-            # for i in range(10):
-            #     updatePosition()
 
-            # State 0: Idle
+            # State 0: Gyro and Encoder calibration
             if state == 0:
-                self.test()
+                self.calibrate()
 
             # State 1: Turn around to find walls
             elif state == 1:
-                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                current_cell = self.getCurrentCell()
                 self.travelled_cells.add(current_cell)
                 
                 self.lookAround(current_cell)
@@ -500,26 +488,21 @@ class PuckController:
 
                 state = 2
 
-            # State 2: Move to money drop
+            # State 2: Move to goal
             elif state == 2:
-                self.getReceiverData()
-                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                self.setTransmittedData()
+                current_cell = self.getCurrentCell()
                 self.setPathAndGoal(current_cell)
                 print(self.maze.path)
 
                 next_cell = self.maze.path[current_cell]
                 self.moveToNextCell(current_cell, next_cell)
 
-                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                current_cell = self.getCurrentCell()
                 if current_cell not in self.travelled_cells:
                     state = 1
                 else:
                     state = 2
-
-
-            # State 3: Move to exchanger
-
-
 
 
 dave = PuckController()

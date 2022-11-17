@@ -1,7 +1,6 @@
 import csv
 from collections import deque
 
-
 class Maze:
     def __init__(self, rows, cols):
         self.rows = rows
@@ -38,16 +37,16 @@ class Maze:
                 path[nextCell] = cell
                 frontier.append(nextCell)
                 visited.add(nextCell)
-        fwdPath = {}
+        path_dict = {}
         cell = goal
         while cell != start:
             try:
-                fwdPath[path[cell]] = cell
+                path_dict[path[cell]] = cell
                 cell = path[cell]
             except:
                 print("Path to goal not found!")
                 return
-        return fwdPath
+        return path_dict
  
     def solveMaze(self, start, goal):
         self.path = self.BFS(start, goal)
