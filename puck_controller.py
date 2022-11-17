@@ -112,10 +112,6 @@ def updatePosition():
     #   // robot position w.r.to Y direction
     position[1] -= displacement * math.cos(position[2])
 
-    # print("Estimated robot_x     : ", position[0])
-    # print("Estimated robot_y     : ", position[1])
-    # print("Estimated robot_orien : ", position[2])
-
 def getOppositeDir(dir):
     if dir == "N":
         return "S"
@@ -372,7 +368,7 @@ def getGoalCell():
     if len(money_drops) > 0:
         return worldToMazeCoords(tuple(money_drops[0]))
     else:
-        return (1,1)
+        return (9,4)
 
 
 def test():

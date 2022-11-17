@@ -3,9 +3,7 @@ from collections import deque
 
 
 class maze:
-
     def __init__(self, rows, cols):
-
         self.rows = rows
         self.cols = cols
         self.maze_map = {}
