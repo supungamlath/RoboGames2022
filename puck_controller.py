@@ -11,6 +11,8 @@ from maze_solver import *
 ### Constants ###
 MAZE_FILENAME = "saved_maze.csv"
 MOTOR_MAX_SPEED = 6.28
+SPEED = 1
+TURN_SPEED = 1
 # WHEEL_RADIUS = 0.0205
 SQUARE_LENGTH = 0.25
 # AXLE_LENGTH = 0.052
@@ -192,8 +194,8 @@ def turnRight():
         return not (0 <= angle_to_turn <= 0.03)
 
     while should_turn(expected_bearing):
-        left_motor.setVelocity(-1)
-        right_motor.setVelocity(1)
+        left_motor.setVelocity(-TURN_SPEED)
+        right_motor.setVelocity(TURN_SPEED)
         updatePosition()
 
     stopMotors()
@@ -218,8 +220,8 @@ def turnLeft():
         return not (0 <= angle_to_turn <= 0.03)
 
     while should_turn(expected_bearing):
-        left_motor.setVelocity(-1)
-        right_motor.setVelocity(1)
+        left_motor.setVelocity(-TURN_SPEED)
+        right_motor.setVelocity(TURN_SPEED)
         updatePosition()
 
     stopMotors()
@@ -245,8 +247,8 @@ def goFoward():
         return distance_remaining > 0.005
 
     while should_turn(target):
-        left_motor.setVelocity(1)
-        right_motor.setVelocity(1)
+        left_motor.setVelocity(SPEED)
+        right_motor.setVelocity(SPEED)
         updatePosition()
 
     stopMotors()
