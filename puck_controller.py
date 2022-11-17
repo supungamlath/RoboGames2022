@@ -4,427 +4,492 @@ import sys
 sys.path.append("E:\Program Files\Webots\lib\controller\python39")
 
 from controller import Robot
-import json, csv, shutil, math, time
+import json, csv, shutil, math, time, webcolors
 from tempfile import NamedTemporaryFile
 from maze_solver import *
 
-### Constants ###
-MAZE_FILENAME = "saved_maze.csv"
+### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
 SPEED = 1
 TURN_SPEED = 1
-# WHEEL_RADIUS = 0.0205
 SQUARE_LENGTH = 0.25
-# AXLE_LENGTH = 0.052
 GYRO_CALIB = -4.26176112037897e-06
 ENCODER_CALIB = 0.020002628550546703
+# WHEEL_RADIUS = 0.0205
+# AXLE_LENGTH = 0.052
+
+### Math Constants ###
 TWO_PI = math.pi * 2
 PI = math.pi
 HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
 
-### Initialize sensors and actuators ###
-robot = Robot()
-timestep = int(robot.getBasicTimeStep())
-# Receiver initialization
-receiver = robot.getDevice("receiver")
-receiver.enable(timestep)
-# Camera initialization
-camera = robot.getDevice("camera")
-camera.setFov(0.62)
-camera.enable(timestep)
-# Motor initialization
-left_motor = robot.getDevice("left wheel motor")
-right_motor = robot.getDevice("right wheel motor")
-left_motor.setPosition(float("inf"))
-right_motor.setPosition(float("inf"))
-left_motor.setVelocity(0)
-right_motor.setVelocity(0)
-# Position sensor initialization
-left_pos = robot.getDevice("left wheel sensor")
-right_pos = robot.getDevice("right wheel sensor")
-left_pos.enable(timestep)
-right_pos.enable(timestep)
-# Gyro initialization
-gyro = robot.getDevice("gyro")
-gyro.enable(timestep)
-# Proximity sensor initialization
-distance_sensors = []
-for i in range(8):
-    ds = robot.getDevice("ps" + str(i))
-    ds.enable(timestep)
-    distance_sensors.append(ds)
-
-
-### Sensor Functions ###
-def getOrientation(angle):
-    if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
-        return "N"
-    elif angle >= QUARTER_PI and angle < (HALF_PI + QUARTER_PI):
-        return "E"
-    elif angle >= (HALF_PI + QUARTER_PI) and angle < (PI + QUARTER_PI):
-        return "S"
-    elif angle >= (PI + QUARTER_PI) and angle < (TWO_PI - QUARTER_PI):
-        return "W"
-
-# Function to update position vector and print it to the console
-def updatePosition():
-    def getEncoderAngles():
-        return (
-            left_pos.getValue() - encoder_offsets[0],
-            right_pos.getValue() - encoder_offsets[1],
-        )
-
-    def resetEncoderDistances():
-        encoder_offsets[0] = left_pos.getValue()
-        encoder_offsets[1] = right_pos.getValue()
-
-    def getAngularVelocity():
-        return gyro.getValues()[2] * GYRO_CALIB
-
-    # Function to return displacements of left and right wheel given encoder angles
-    def getWheelDisplacements(left_angle, right_angle):
-        # compute displacement of left wheel in meters
-        left_disp = left_angle * ENCODER_CALIB
-        # compute displacement of right wheel in meters
-        right_disp = right_angle * ENCODER_CALIB
-        return left_disp, right_disp
-
-    global position
-
-    resetEncoderDistances()
-    robot.step(timestep)
+class PuckController:
+    def __init__(self):
+        self.robot = Robot()
+        self.timestep = int(self.robot.getBasicTimeStep())
+   
+        # Receiver initialization
+        self.receiver = self.robot.getDevice("receiver")
+        self.receiver.enable(self.timestep)
+   
+        # Camera initialization
+        self.camera = self.robot.getDevice("camera")
+        self.camera.setFov(0.62)
+        self.camera.enable(self.timestep)
     
-    position[2] += getAngularVelocity()
-    if position[2] < 0:
-        position[2] += TWO_PI
-    elif position[2] > TWO_PI:
-        position[2] = position[2] % TWO_PI
+        # Motor initialization
+        self.left_motor = self.robot.getDevice("left wheel motor")
+        self.right_motor = self.robot.getDevice("right wheel motor")
+        self.left_motor.setPosition(float("inf"))
+        self.right_motor.setPosition(float("inf"))
+        self.left_motor.setVelocity(0)
+        self.right_motor.setVelocity(0)
+   
+        # Position sensor initialization
+        self.left_pos = self.robot.getDevice("left wheel sensor")
+        self.right_pos = self.robot.getDevice("right wheel sensor")
+        self.left_pos.enable(self.timestep)
+        self.right_pos.enable(self.timestep)
+        self.encoder_offsets = [0, 0]
+    
+        # Gyro initialization
+        self.gyro = self.robot.getDevice("gyro")
+        self.gyro.enable(self.timestep)
+   
+        # Proximity sensor initialization
+        self.distance_sensors = []
+        for i in range(8):
+            ds = self.robot.getDevice("ps" + str(i))
+            ds.enable(self.timestep)
+            self.distance_sensors.append(ds)
 
-    left_angle, right_angle = getEncoderAngles()
-    displacement = sum(getWheelDisplacements(left_angle, right_angle)) / 2
-    #   // Update position vector:
-    #   // Update in position along X direction
-    position[0] -= displacement * math.sin(position[2])
-    #   // Update in position along Y direction
-    #   // robot position w.r.to Y direction
-    position[1] -= displacement * math.cos(position[2])
+        # Maze initialization
+        self.maze = Maze(9, 8)
+        self.maze.loadMaze()
+        self.money_drops = []
+        self.exchanger_cell = None
+        self.goal = (1, 1)
+        self.travelled_cells = set()
+        self.position = [0.125, 1.125, 0]
+        
+        # Game variables
+        self.rupees = 0
+        self.dollars = 0
 
-def getWallPresent():
-    image = camera.getImage()
-    blue = camera.imageGetBlue(image, camera.getWidth(), 26, 30)
-    green = camera.imageGetGreen(image, camera.getWidth(), 26, 30)
-    red = camera.imageGetRed(image, camera.getWidth(), 26, 30)
-    if blue == max(red, green, blue):
-        # Wall is present
-        return 0
-    # Wall is not present
-    return 1
+    ### Sensor Functions ###
+    def getOrientation(self, angle):
+        if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
+            return "N"
+        elif angle >= QUARTER_PI and angle < (HALF_PI + QUARTER_PI):
+            return "E"
+        elif angle >= (HALF_PI + QUARTER_PI) and angle < (PI + QUARTER_PI):
+            return "S"
+        elif angle >= (PI + QUARTER_PI) and angle < (TWO_PI - QUARTER_PI):
+            return "W"
 
-def getReceiverData():
-    global money_drops, rupees, dollars, exchanger
-    while receiver.getQueueLength() > 0:
-        rec_data = json.loads(receiver.getData().decode("utf-8"))
-        # print(rec_data)
-        money_drops = rec_data["collectibles"]
-        rupees = rec_data["rupees"]
-        dollars = rec_data["dollars"]
-        exchanger = tuple(rec_data["goal"])
+    def updatePosition(self):
+        def getEncoderAngles():
+            return (
+                self.left_pos.getValue() - self.encoder_offsets[0],
+                self.right_pos.getValue() - self.encoder_offsets[1],
+            )
 
-        receiver.nextPacket()
+        def resetEncoderDistances():
+            self.encoder_offsets[0] = self.left_pos.getValue()
+            self.encoder_offsets[1] = self.right_pos.getValue()
 
-def isWallInProximity():
-    if (distance_sensors[0].getValue() > 140) and (
-        distance_sensors[7].getValue() > 140
-    ):
+        def getAngularVelocity():
+            return self.gyro.getValues()[2] * GYRO_CALIB
+
+        # Function to return displacements of left and right wheel given encoder angles
+        def getWheelDisplacements(left_angle, right_angle):
+            # compute displacement of left wheel in meters
+            left_disp = left_angle * ENCODER_CALIB
+            # compute displacement of right wheel in meters
+            right_disp = right_angle * ENCODER_CALIB
+            return left_disp, right_disp
+
+        resetEncoderDistances()
+        self.robot.step(self.timestep)
+        
+        self.position[2] += getAngularVelocity()
+        if self.position[2] < 0:
+            self.position[2] += TWO_PI
+        elif self.position[2] > TWO_PI:
+            self.position[2] = self.position[2] % TWO_PI
+
+        left_angle, right_angle = getEncoderAngles()
+        displacement = sum(getWheelDisplacements(left_angle, right_angle)) / 2
+        #   // Update position vector:
+        #   // Update in position along X direction
+        self.position[0] -= displacement * math.sin(self.position[2])
+        #   // Update in position along Y direction
+        #   // robot position w.r.to Y direction
+        self.position[1] -= displacement * math.cos(self.position[2])
+
+    def getWallPresent(self):
+        def closestColour(requested_colour):
+            min_colours = {}
+            for key, name in webcolors.html4_hex_to_names.items():
+                r_c, g_c, b_c = webcolors.hex_to_rgb(key)
+                rd = (r_c - requested_colour[0]) ** 2
+                gd = (g_c - requested_colour[1]) ** 2
+                bd = (b_c - requested_colour[2]) ** 2
+                min_colours[(rd + gd + bd)] = name
+            return min_colours[min(min_colours.keys())]
+
+        image = self.camera.getImage()
+        width = self.camera.getWidth()
+        blue = self.camera.imageGetBlue(image, width, 26, 30)
+        green = self.camera.imageGetGreen(image, width, 26, 30)
+        red = self.camera.imageGetRed(image, width, 26, 30)
+        color_name = closestColour((red, green, blue))
+        if color_name in ["navy", "blue", "teal", "aqua"]:
+            # Wall is present
+            return 0
+        # Wall is not present
+        return 1
+
+    def getReceiverData(self):
+        while self.receiver.getQueueLength() > 0:
+            rec_data = json.loads(self.receiver.getData().decode("utf-8"))
+            # print(rec_data)
+            self.money_drops = rec_data["collectibles"]
+            self.rupees = rec_data["rupees"]
+            self.dollars = rec_data["dollars"]
+            self.exchanger_cell = tuple(rec_data["goal"])
+
+            self.receiver.nextPacket()
+
+    def isWallInProximity(self):
+        if (self.distance_sensors[0].getValue() > 140) and (
+            self.distance_sensors[7].getValue() > 140
+        ):
+            return True
+
+    ### Motion Functions ###
+    def stopMotors(self):
+        self.left_motor.setVelocity(0)
+        self.right_motor.setVelocity(0)
         return True
 
-
-### Motion Functions ###
-def stopMotors():
-    left_motor.setVelocity(0)
-    right_motor.setVelocity(0)
-    return True
-
-def turnRight():
-    print("Turning right")
-    orientation = getOrientation(position[2])
-    if orientation == "N":
-        expected_bearing = HALF_PI
-    elif orientation == "E":
-        expected_bearing = PI
-    elif orientation == "S":
-        expected_bearing = PI + HALF_PI
-    else:
-        expected_bearing = TWO_PI
-
-    def should_turn(init_orien, expected_bearing):
-        turned_angle = position[2]
-        if init_orien == "W" and turned_angle < PI:
-            turned_angle += TWO_PI
-        elif init_orien == "N" and turned_angle > PI:
-            turned_angle -= TWO_PI
-        return turned_angle < expected_bearing
-
-    while should_turn(orientation, expected_bearing):
-        left_motor.setVelocity(TURN_SPEED)
-        right_motor.setVelocity(-TURN_SPEED)
-        updatePosition()
-
-    stopMotors()
-
-def turnLeft():
-    print("Turning left")
-    orientation = getOrientation(position[2])
-    if orientation == "N":
-        expected_bearing = PI + HALF_PI
-    elif orientation == "E":
-        expected_bearing = 0
-    elif orientation == "S":
-        expected_bearing = HALF_PI
-    else:
-        expected_bearing = PI
-
-    def should_turn(init_orien, expected_bearing):
-        turned_angle = position[2]
-        if init_orien == "E" and turned_angle > PI:
-            turned_angle -= TWO_PI
-        elif init_orien == "N" and turned_angle < PI:
-            turned_angle += TWO_PI
-        return turned_angle > expected_bearing
-
-    while should_turn(orientation, expected_bearing):
-        left_motor.setVelocity(-TURN_SPEED)
-        right_motor.setVelocity(TURN_SPEED)
-        updatePosition()
-
-    stopMotors()
-
-def goFoward():
-    print("Going Foward")
-    orientation = getOrientation(position[2])
-    if orientation == "N":
-        target = position[1] - SQUARE_LENGTH
-    elif orientation == "E":
-        target = position[0] - SQUARE_LENGTH
-    elif orientation == "S":
-        target = position[1] + SQUARE_LENGTH
-    elif orientation == "W":
-        target = position[0] + SQUARE_LENGTH
-    target = round(target * 8) / 8
-
-    def should_move(init_orien, target):
-        # print(position[0], position[1], target)
-        if init_orien == "N":
-            return position[1] > target
-        elif init_orien == "S":
-            return position[1] < target
-        elif init_orien == "E":
-            return position[0] > target
-        elif init_orien == "W":
-            return position[0] < target
-
-    while should_move(orientation, target):
-        left_motor.setVelocity(SPEED)
-        right_motor.setVelocity(SPEED)
-        updatePosition()
-
-    stopMotors()
-
-def moveToNextCoord(current_coord, next_coord):
-    print("Moving from", current_coord, "to", next_coord)
-    front_dir = getOrientation(position[2])
-    if front_dir == "N":
-        if next_coord[0] < current_coord[0]:
-            goFoward()
-        elif next_coord[0] > current_coord[0]:
-            turnRight()
-            turnRight()
-            goFoward()
-        elif next_coord[1] > current_coord[1]:
-            turnRight()
-            goFoward()
-        elif next_coord[1] < current_coord[1]:
-            turnLeft()
-            goFoward()
-    elif front_dir == "E":
-        if next_coord[1] > current_coord[1]:
-            goFoward()
-        elif next_coord[1] < current_coord[1]:
-            turnRight()
-            turnRight()
-            goFoward()
-        elif next_coord[0] > current_coord[0]:
-            turnRight()
-            goFoward()
-        elif next_coord[0] < current_coord[0]:
-            turnLeft()
-            goFoward()
-    elif front_dir == "S":
-        if next_coord[0] > current_coord[0]:
-            goFoward()
-        elif next_coord[0] < current_coord[0]:
-            turnRight()
-            turnRight()
-            goFoward()
-        elif next_coord[1] < current_coord[1]:
-            turnRight()
-            goFoward()
-        elif next_coord[1] > current_coord[1]:
-            turnLeft()
-            goFoward()
-    elif front_dir == "W":
-        if next_coord[1] < current_coord[1]:
-            goFoward()
-        elif next_coord[1] > current_coord[1]:
-            turnRight()
-            turnRight()
-            goFoward()
-        elif next_coord[0] < current_coord[0]:
-            turnRight()
-            goFoward()
-        elif next_coord[0] > current_coord[0]:
-            turnLeft()
-            goFoward()
-
-
-### Maze Functions ###
-def addWallToMaze(cell, dir, wall_present):
-    def getOppositeDir(dir):
-        if dir == "N":
-            return "S"
-        elif dir == "E":
-            return "W"
-        elif dir == "S":
-            return "N"
-        elif dir == "W":
-            return "E"
-
-    def getAdjacentCell(cell, dir):
-        if dir == "N":
-            return (cell[0] - 1, cell[1])
-        elif dir == "E":
-            return (cell[0], cell[1] + 1)
-        elif dir == "S":
-            return (cell[0] + 1, cell[1])
-        elif dir == "W":
-            return (cell[0], cell[1] - 1)
-
-    fields = ["  cell  ", "E", "W", "N", "S"]
-    tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
-    with open(MAZE_FILENAME, "r", newline="") as csvfile, tempfile:
-        reader = csv.DictReader(csvfile, fieldnames=fields)
-        writer = csv.DictWriter(tempfile, fieldnames=fields)
-
-        adj_cell = getAdjacentCell(cell, dir)
-        for row in reader:
-            if row["  cell  "] == str(cell):
-                row[dir] = wall_present
-            elif row["  cell  "] == str(adj_cell):
-                row[getOppositeDir(dir)] = wall_present
-
-            writer.writerow(row)
-
-    shutil.move(tempfile.name, MAZE_FILENAME)
-
-def worldToMazeCoords(coord):
-    # Note that the world and maze have switched x and y axes
-    x = 4 - int(coord[0] // SQUARE_LENGTH)
-    y = 5 + int(coord[1] // SQUARE_LENGTH)
-    return (y, x)
-
-def lookAround(maze_coord):
-    for i in range(4):
-        cell_info = m.maze_map[maze_coord]
-        facing_dir = getOrientation(position[2])
-        if cell_info[facing_dir] == 1:
-            is_not_facing_wall = getWallPresent()
-            camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
-            addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-            if not is_not_facing_wall:
-                print("Wall seen on", facing_dir)
-            else:
-                print("No wall seen on", facing_dir)
+    def turnRight(self):
+        print("Turning right")
+        orientation = self.getOrientation(self.position[2])
+        if orientation == "N":
+            expected_bearing = HALF_PI
+        elif orientation == "E":
+            expected_bearing = PI
+        elif orientation == "S":
+            expected_bearing = PI + HALF_PI
         else:
-            print("Wall known on", facing_dir)
-        turnLeft()
+            expected_bearing = TWO_PI
 
-def getGoalCell():
-    if len(money_drops) > 0:
-        return worldToMazeCoords(tuple(money_drops[0]))
-    else:
-        return (9,4)
+        def should_turn(init_orien, expected_bearing):
+            turned_angle = self.position[2]
+            if init_orien == "W" and turned_angle < PI:
+                turned_angle += TWO_PI
+            elif init_orien == "N" and turned_angle > PI:
+                turned_angle -= TWO_PI
+            return turned_angle < expected_bearing
 
+        while should_turn(orientation, expected_bearing):
+            self.left_motor.setVelocity(TURN_SPEED)
+            self.right_motor.setVelocity(-TURN_SPEED)
+            self.updatePosition()
 
-def test():
-    # turnLeft()
-    turnLeft()
-    goFoward()
-    turnLeft()
-    goFoward()
-    # goFoward()
+        self.stopMotors()
 
-    image = camera.getImage()
-    blue = camera.imageGetBlue(image, camera.getWidth(), 26, 30)
-    green = camera.imageGetGreen(image, camera.getWidth(), 26, 30)
-    red = camera.imageGetRed(image, camera.getWidth(), 26, 30)
-    print("Blue:", blue, "Green:", green, "Red:", red)
-    named_color = closestColour((red,green,blue))
-    print(named_color)
-    
-    time.sleep(10000)
+    def turnLeft(self):
+        print("Turning left")
+        orientation = self.getOrientation(self.position[2])
+        if orientation == "N":
+            expected_bearing = PI + HALF_PI
+        elif orientation == "E":
+            expected_bearing = 0
+        elif orientation == "S":
+            expected_bearing = HALF_PI
+        else:
+            expected_bearing = PI
 
+        def should_turn(init_orien, expected_bearing):
+            turned_angle = self.position[2]
+            if init_orien == "E" and turned_angle > PI:
+                turned_angle -= TWO_PI
+            elif init_orien == "N" and turned_angle < PI:
+                turned_angle += TWO_PI
+            return turned_angle > expected_bearing
 
-### Global variables ###
-money_drops = []
-exchanger = None
-rupees = 0
-dollars = 0
-path = {}
-goal = getGoalCell()
-travelled_cells = set()
-position = [0.125, 1.125, 0]
-encoder_offsets = [0, 0]
-m = maze(9, 8)
-m.solveMaze(path=MAZE_FILENAME)
+        while should_turn(orientation, expected_bearing):
+            self.left_motor.setVelocity(-TURN_SPEED)
+            self.right_motor.setVelocity(TURN_SPEED)
+            self.updatePosition()
 
-### Main function ###
-if __name__ == "__main__":
-    state = 1
-    while robot.step(timestep) != -1:
-        # Robot behavior is modeled as a state machine
-        # for i in range(10):
-        #     updatePosition()
+        self.stopMotors()
 
-        # State 0: Idle
-        if state == 0:
-            test()
+    def goFoward(self):
+        print("Going Foward")
+        orientation = self.getOrientation(self.position[2])
+        if orientation == "N":
+            target = self.position[1] - SQUARE_LENGTH
+        elif orientation == "E":
+            target = self.position[0] - SQUARE_LENGTH
+        elif orientation == "S":
+            target = self.position[1] + SQUARE_LENGTH
+        elif orientation == "W":
+            target = self.position[0] + SQUARE_LENGTH
+        target = round(target * 8) / 8
 
-        # State 1: Turn around to find walls
-        elif state == 1:
-            current_coord = worldToMazeCoords((position[0], position[1]))
-            travelled_cells.add(current_coord)
-            
-            lookAround(current_coord)
-            m.solveMaze(start=current_coord, goal=goal, path=MAZE_FILENAME)
-            print(m.path)
+        def should_move(init_orien, target):
+            # print(position[0], position[1], target)
+            if init_orien == "N":
+                return self.position[1] > target
+            elif init_orien == "S":
+                return self.position[1] < target
+            elif init_orien == "E":
+                return self.position[0] > target
+            elif init_orien == "W":
+                return self.position[0] < target
 
-            state = 2
+        while should_move(orientation, target):
+            self.left_motor.setVelocity(SPEED)
+            self.right_motor.setVelocity(SPEED)
+            self.updatePosition()
 
-        # State 2: Move to money drop
-        elif state == 2:
-            getReceiverData()
-            goal = getGoalCell()
-            current_coord = worldToMazeCoords((position[0], position[1]))
-            m.solveMaze(start=current_coord, goal=goal, path=MAZE_FILENAME)
-            next_coord = m.path[current_coord]
-            moveToNextCoord(current_coord, next_coord)
+        self.stopMotors()
 
-            current_coord = worldToMazeCoords((position[0], position[1]))
-            if current_coord not in travelled_cells:
-                state = 1
+    def goBackward(self):
+        print("Going Backwards")
+        orientation = self.getOrientation(self.position[2])
+        if orientation == "N":
+            target = self.position[1] + SQUARE_LENGTH
+        elif orientation == "E":
+            target = self.position[0] + SQUARE_LENGTH
+        elif orientation == "S":
+            target = self.position[1] - SQUARE_LENGTH
+        elif orientation == "W":
+            target = self.position[0] - SQUARE_LENGTH
+        target = round(target * 8) / 8
+
+        def should_move(init_orien, target):
+            # print(position[0], position[1], target)
+            if init_orien == "N":
+                return self.position[1] < target
+            elif init_orien == "S":
+                return self.position[1] > target
+            elif init_orien == "E":
+                return self.position[0] < target
+            elif init_orien == "W":
+                return self.position[0] > target
+
+        while should_move(orientation, target):
+            self.left_motor.setVelocity(-SPEED)
+            self.right_motor.setVelocity(-SPEED)
+            self.updatePosition()
+
+        self.stopMotors()
+
+    def moveToNextCoord(self, current_coord, next_coord):
+        print("Moving from", current_coord, "to", next_coord)
+        front_dir = self.getOrientation(self.position[2])
+        if front_dir == "N":
+            if next_coord[0] < current_coord[0]:
+                self.goFoward()
+            elif next_coord[0] > current_coord[0]:
+                self.goBackward()
+            elif next_coord[1] > current_coord[1]:
+                self.turnRight()
+                self.goFoward()
+            elif next_coord[1] < current_coord[1]:
+                self.turnLeft()
+                self.goFoward()
+        elif front_dir == "E":
+            if next_coord[1] > current_coord[1]:
+                self.goFoward()
+            elif next_coord[1] < current_coord[1]:
+                self.goBackward()
+            elif next_coord[0] > current_coord[0]:
+                self.turnRight()
+                self.goFoward()
+            elif next_coord[0] < current_coord[0]:
+                self.turnLeft()
+                self.goFoward()
+        elif front_dir == "S":
+            if next_coord[0] > current_coord[0]:
+                self.goFoward()
+            elif next_coord[0] < current_coord[0]:
+                self.goBackward()
+            elif next_coord[1] < current_coord[1]:
+                self.turnRight()
+                self.goFoward()
+            elif next_coord[1] > current_coord[1]:
+                self.turnLeft()
+                self.goFoward()
+        elif front_dir == "W":
+            if next_coord[1] < current_coord[1]:
+                self.goFoward()
+            elif next_coord[1] > current_coord[1]:
+                self.goBackward()
+            elif next_coord[0] < current_coord[0]:
+                self.turnRight()
+                self.goFoward()
+            elif next_coord[0] > current_coord[0]:
+                self.turnLeft()
+                self.goFoward()
+
+    ### Maze Functions ###
+    def addWallToMaze(self, cell, dir, wall_present):
+        def getOppositeDir(dir):
+            if dir == "N":
+                return "S"
+            elif dir == "E":
+                return "W"
+            elif dir == "S":
+                return "N"
+            elif dir == "W":
+                return "E"
+
+        def getAdjacentCell(cell, dir):
+            if dir == "N":
+                return (cell[0] - 1, cell[1])
+            elif dir == "E":
+                return (cell[0], cell[1] + 1)
+            elif dir == "S":
+                return (cell[0] + 1, cell[1])
+            elif dir == "W":
+                return (cell[0], cell[1] - 1)
+
+        fields = ["  cell  ", "E", "W", "N", "S"]
+        tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
+        with open("saved_maze.csv", "r", newline="") as csvfile, tempfile:
+            reader = csv.DictReader(csvfile, fieldnames=fields)
+            writer = csv.DictWriter(tempfile, fieldnames=fields)
+
+            adj_cell = getAdjacentCell(cell, dir)
+            for row in reader:
+                if row["  cell  "] == str(cell):
+                    row[dir] = wall_present
+                elif row["  cell  "] == str(adj_cell):
+                    row[getOppositeDir(dir)] = wall_present
+
+                writer.writerow(row)
+
+        shutil.move(tempfile.name, "saved_maze.csv")
+
+    def worldToMazeCoords(self, coord):
+        # Note that the world and maze have switched x and y axes
+        x = 4 - int(coord[0] // SQUARE_LENGTH)
+        y = 5 + int(coord[1] // SQUARE_LENGTH)
+        return (y, x)
+
+    def lookAround(self, maze_coord):
+        def updateMazeAndSaveImage(cell_info):
+            facing_dir = self.getOrientation(self.position[2])
+            if cell_info[facing_dir] == 1:
+                is_not_facing_wall = self.getWallPresent()
+                self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
+                self.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
+                if not is_not_facing_wall:
+                    print("Wall seen on", facing_dir)
+                else:
+                    print("No wall seen on", facing_dir)
             else:
+                print("Wall known on", facing_dir)
+
+        directions = ["N", "E", "S", "W"]
+        facing_dir = self.getOrientation(self.position[2])
+        cell_info = self.maze.maze_map[maze_coord]
+        walls = [cell_info[d] for d in directions]
+        print(walls)
+        k = directions.index(facing_dir)
+
+        left_turns = 0
+        for i in range(4):
+            if walls[k] == 1:
+                left_turns = i
+            k = (k+1) % 4
+        right_turns =  0
+        for i in range(4):
+            if walls[k] == 1:
+                right_turns = i
+            k = (k-1) % 4
+        print("Left turns:", left_turns)
+        print("Right turns:", right_turns)
+        if right_turns > left_turns:
+            for i in range(left_turns):
+                updateMazeAndSaveImage(cell_info)
+                self.turnLeft()
+        else:
+            for i in range(right_turns):
+                updateMazeAndSaveImage(cell_info)
+                self.turnRight()
+
+    def getGoalCell(self):
+        if len(self.money_drops) > 0:
+            return self.worldToMazeCoords(tuple(self.money_drops[0]))
+        else:
+            return (9,4)
+
+    def test(self):
+        self.turnLeft()
+        self.goFoward()
+        self.turnLeft()
+        self.goFoward()
+
+        image = self.camera.getImage()
+        width = self.camera.getWidth()
+        blue = self.camera.imageGetBlue(image, width, 26, 30)
+        green = self.camera.imageGetGreen(image, width, 26, 30)
+        red = self.camera.imageGetRed(image, width, 26, 30)
+        print("Blue:", blue, "Green:", green, "Red:", red)
+        
+        time.sleep(10000)
+
+    ### Main function ###
+    def run(self):
+        state = 1
+        while self.robot.step(self.timestep) != -1:
+            # Robot behavior is modeled as a state machine
+            # for i in range(10):
+            #     updatePosition()
+
+            # State 0: Idle
+            if state == 0:
+                self.test()
+
+            # State 1: Turn around to find walls
+            elif state == 1:
+                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
+                self.travelled_cells.add(current_coord)
+                
+                self.lookAround(current_coord)
+                self.maze.loadAndSolveMaze(current_coord, self.goal)
+                print(self.maze.path)
+
                 state = 2
 
+            # State 2: Move to money drop
+            elif state == 2:
+                self.getReceiverData()
+                self.goal = self.getGoalCell()
+                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
+                self.maze.solveMaze(current_coord, self.goal)
+                print(self.maze.path)
+                next_coord = self.maze.path[current_coord]
+                self.moveToNextCoord(current_coord, next_coord)
 
-        # State 3: Move to exchanger
+                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
+                if current_coord not in self.travelled_cells:
+                    state = 1
+                else:
+                    state = 2
+
+
+            # State 3: Move to exchanger
+
+
+
+
+dave = PuckController()
+dave.run()

@@ -2,7 +2,7 @@ import csv
 from collections import deque
 
 
-class maze:
+class Maze:
     def __init__(self, rows, cols):
         self.rows = rows
         self.cols = cols
@@ -10,13 +10,7 @@ class maze:
         self.grid = []
         self.path = {}
 
-    def solveMaze(
-        self,
-        start=(1, 1),
-        goal=(1, 1),
-        path=None,
-    ):
-
+    def solveMaze(self, start, goal):
         self._start = start
         self._goal = goal
 
@@ -57,9 +51,12 @@ class maze:
                     print("Path to goal not found!")
                     return
             return fwdPath
-
+        
+        self.path = BFS(start)
+        
+    def loadMaze(self, filename="saved_maze.csv"):
         # Load maze from CSV file
-        with open(path, "r") as f:
+        with open(filename, "r") as f:
             last = list(f.readlines())[-1]
             c = last.split(",")
             c[0] = int(c[0].lstrip('"('))
@@ -68,7 +65,7 @@ class maze:
             self.cols = c[1]
             self.grid = []
 
-        with open(path, "r") as f:
+        with open(filename, "r") as f:
             r = csv.reader(f)
             next(r)
             for i in r:
@@ -81,6 +78,7 @@ class maze:
                     "N": int(i[3]),
                     "S": int(i[4]),
                 }
-        self.path = BFS(start)
 
-
+    def loadAndSolveMaze(self, start, goal):
+        self.loadMaze()
+        self.solveMaze(start, goal)
