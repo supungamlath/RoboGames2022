@@ -4,7 +4,7 @@ import sys
 sys.path.append("E:\Program Files\Webots\lib\controller\python39")
 
 from controller import Robot
-import json, csv, shutil, math, time, webcolors
+import json, csv, shutil, math, time
 from tempfile import NamedTemporaryFile
 from maze_solver import *
 
@@ -354,13 +354,17 @@ def worldToMazeCoords(coord):
 
 def lookAround(maze_coord):
     for i in range(4):
-        is_not_facing_wall = getWallPresent()
+        cell_info = m.maze_map[maze_coord]
         facing_dir = getOrientation(position[2])
-        addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-        if not is_not_facing_wall:
-            print("Wall seen on", facing_dir)
+        if cell_info[facing_dir] == 1:
+            is_not_facing_wall = getWallPresent()
+            addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
+            if not is_not_facing_wall:
+                print("Wall seen on", facing_dir)
+            else:
+                print("No wall seen on", facing_dir)
         else:
-            print("No wall seen on", facing_dir)
+            print("Wall known on", facing_dir)
         turnLeft()
 
 def getGoalCell():
@@ -369,15 +373,6 @@ def getGoalCell():
     else:
         return (1,1)
 
-def closestColour(requested_colour):
-    min_colours = {}
-    for key, name in webcolors.html4_hex_to_names.items():
-        r_c, g_c, b_c = webcolors.hex_to_rgb(key)
-        rd = (r_c - requested_colour[0]) ** 2
-        gd = (g_c - requested_colour[1]) ** 2
-        bd = (b_c - requested_colour[2]) ** 2
-        min_colours[(rd + gd + bd)] = name
-    return min_colours[min(min_colours.keys())]
 
 def test():
     # turnLeft()
@@ -409,24 +404,19 @@ travelled_cells = set()
 position = [0.125, 0.375, 0]
 encoder_offsets = [0, 0]
 m = maze(9, 8)
+m.solveMaze(path=MAZE_FILENAME)
 
 ### Main function ###
 if __name__ == "__main__":
-    state = 0
+    state = 1
     while robot.step(timestep) != -1:
         # Robot behavior is modeled as a state machine
-        for i in range(10):
-            updatePosition()
+        # for i in range(10):
+        #     updatePosition()
 
         # State 0: Idle
         if state == 0:
             test()
-            # if exchanger:
-            #     exchanger_loc = worldToMazeCoords(exchanger)
-            #     print("exchanger_loc", exchanger_loc)
-            # for drop in money_drops:
-            #     drop_loc = worldToMazeCoords(drop)
-            #     print("drop_loc", drop_loc)
 
         # State 1: Turn around to find walls
         elif state == 1:
