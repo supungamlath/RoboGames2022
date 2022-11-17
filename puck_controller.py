@@ -4,14 +4,14 @@ import sys
 sys.path.append("E:\Program Files\Webots\lib\controller\python39")
 
 from controller import Robot
-import json, csv, shutil, math, time, webcolors
+import json, csv, shutil, math, webcolors
 from tempfile import NamedTemporaryFile
 from maze_solver import *
 
 ### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
-SPEED = 1
-TURN_SPEED = 1
+SPEED = 1.5
+TURN_SPEED = 1.5
 CAPACITY = 3000
 SQUARE_LENGTH = 0.25
 GYRO_CALIB = -4.26176112037897e-06
@@ -488,7 +488,7 @@ class PuckController:
 
                 state = 2
 
-            # State 2: Move to goal
+            # State 2: Find and move to goal
             elif state == 2:
                 self.setTransmittedData()
                 current_cell = self.getCurrentCell()
