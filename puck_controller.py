@@ -57,19 +57,6 @@ for i in range(8):
 
 
 ### Sensor Functions ###
-def getEncoderAngles():
-    return (
-        left_pos.getValue() - encoder_offsets[0],
-        right_pos.getValue() - encoder_offsets[1],
-    )
-
-def resetEncoderDistances():
-    encoder_offsets[0] = left_pos.getValue()
-    encoder_offsets[1] = right_pos.getValue()
-
-def getAngularVelocity():
-    return gyro.getValues()[2] * GYRO_CALIB
-
 def getOrientation(angle):
     if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
         return "N"
@@ -80,22 +67,33 @@ def getOrientation(angle):
     elif angle >= (PI + QUARTER_PI) and angle < (TWO_PI - QUARTER_PI):
         return "W"
 
-# Function to return displacements of left and right wheel given encoder angles
-def getWheelDisplacements(left_angle, right_angle):
-    # compute displacement of left wheel in meters
-    left_disp = left_angle * ENCODER_CALIB
-    # compute displacement of right wheel in meters
-    right_disp = right_angle * ENCODER_CALIB
-    return left_disp, right_disp
-
 # Function to update position vector and print it to the console
 def updatePosition():
+    def getEncoderAngles():
+        return (
+            left_pos.getValue() - encoder_offsets[0],
+            right_pos.getValue() - encoder_offsets[1],
+        )
+
+    def resetEncoderDistances():
+        encoder_offsets[0] = left_pos.getValue()
+        encoder_offsets[1] = right_pos.getValue()
+
+    def getAngularVelocity():
+        return gyro.getValues()[2] * GYRO_CALIB
+
+    # Function to return displacements of left and right wheel given encoder angles
+    def getWheelDisplacements(left_angle, right_angle):
+        # compute displacement of left wheel in meters
+        left_disp = left_angle * ENCODER_CALIB
+        # compute displacement of right wheel in meters
+        right_disp = right_angle * ENCODER_CALIB
+        return left_disp, right_disp
+
     global position
 
     resetEncoderDistances()
     robot.step(timestep)
-    #   // Update in orientation
-    #   // orientation
     
     position[2] += getAngularVelocity()
     if position[2] < 0:
@@ -111,26 +109,6 @@ def updatePosition():
     #   // Update in position along Y direction
     #   // robot position w.r.to Y direction
     position[1] -= displacement * math.cos(position[2])
-
-def getOppositeDir(dir):
-    if dir == "N":
-        return "S"
-    elif dir == "E":
-        return "W"
-    elif dir == "S":
-        return "N"
-    elif dir == "W":
-        return "E"
-
-def getAdjacentCell(cell, dir):
-    if dir == "N":
-        return (cell[0] - 1, cell[1])
-    elif dir == "E":
-        return (cell[0], cell[1] + 1)
-    elif dir == "S":
-        return (cell[0] + 1, cell[1])
-    elif dir == "W":
-        return (cell[0], cell[1] - 1)
 
 def getWallPresent():
     image = camera.getImage()
@@ -155,24 +133,11 @@ def getReceiverData():
 
         receiver.nextPacket()
 
-def getDistanceData():
-    return [ds.getValue() for ds in distance_sensors]
-
-def isWallInfront():
+def isWallInProximity():
     if (distance_sensors[0].getValue() > 140) and (
         distance_sensors[7].getValue() > 140
     ):
         return True
-
-def closestColour(requested_colour):
-    min_colours = {}
-    for key, name in webcolors.html4_hex_to_names.items():
-        r_c, g_c, b_c = webcolors.hex_to_rgb(key)
-        rd = (r_c - requested_colour[0]) ** 2
-        gd = (g_c - requested_colour[1]) ** 2
-        bd = (b_c - requested_colour[2]) ** 2
-        min_colours[(rd + gd + bd)] = name
-    return min_colours[min(min_colours.keys())]
 
 
 ### Motion Functions ###
@@ -325,6 +290,26 @@ def moveToNextCoord(current_coord, next_coord):
 
 ### Maze Functions ###
 def addWallToMaze(cell, dir, wall_present):
+    def getOppositeDir(dir):
+        if dir == "N":
+            return "S"
+        elif dir == "E":
+            return "W"
+        elif dir == "S":
+            return "N"
+        elif dir == "W":
+            return "E"
+
+    def getAdjacentCell(cell, dir):
+        if dir == "N":
+            return (cell[0] - 1, cell[1])
+        elif dir == "E":
+            return (cell[0], cell[1] + 1)
+        elif dir == "S":
+            return (cell[0] + 1, cell[1])
+        elif dir == "W":
+            return (cell[0], cell[1] - 1)
+
     fields = ["  cell  ", "E", "W", "N", "S"]
     tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
     with open(MAZE_FILENAME, "r", newline="") as csvfile, tempfile:
