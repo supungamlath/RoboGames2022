@@ -107,7 +107,7 @@ def updatePosition():
     displacement = sum(getWheelDisplacements(left_angle, right_angle)) / 2
     #   // Update position vector:
     #   // Update in position along X direction
-    position[0] += displacement * math.sin(position[2])
+    position[0] -= displacement * math.sin(position[2])
     #   // Update in position along Y direction
     #   // robot position w.r.to Y direction
     position[1] -= displacement * math.cos(position[2])
@@ -243,7 +243,7 @@ def goFoward():
     target = round(target * 8) / 8
 
     def should_move(init_orien, target):
-        # print(position[0], position[1], target)
+        print(position[0], position[1], target)
         if init_orien == "N":
             return position[1] > target
         elif init_orien == "S":
@@ -358,6 +358,12 @@ def getGoalCell():
     else:
         return (1,1)
 
+def setup():
+    # turnLeft()
+    turnLeft()
+    goFoward()
+
+
 ### Global variables ###
 money_drops = []
 exchanger = None
@@ -372,7 +378,7 @@ m = maze(9, 8)
 
 ### Main function ###
 if __name__ == "__main__":
-    state = 1
+    state = 0
     while robot.step(timestep) != -1:
         # Robot behavior is modeled as a state machine
         for i in range(10):
@@ -380,7 +386,7 @@ if __name__ == "__main__":
 
         # State 0: Idle
         if state == 0:
-            getReceiverData()
+            setup()
             # if exchanger:
             #     exchanger_loc = worldToMazeCoords(exchanger)
             #     print("exchanger_loc", exchanger_loc)
