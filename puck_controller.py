@@ -147,10 +147,12 @@ class PuckController:
 
         image = self.camera.getImage()
         width = self.camera.getWidth()
-        blue = self.camera.imageGetBlue(image, width, 26, 30)
-        green = self.camera.imageGetGreen(image, width, 26, 30)
-        red = self.camera.imageGetRed(image, width, 26, 30)
-        color_name = closestColour((red, green, blue))
+        blue, green, red = 0, 0, 0
+        for w in range(width):
+            blue += self.camera.imageGetBlue(image, width, w, 30)
+            green += self.camera.imageGetGreen(image, width, w, 30)
+            red += self.camera.imageGetRed(image, width, w, 30)
+        color_name = closestColour((red//width, green//width, blue//width))
         self.camera.saveImage("images\\" + str(maze_coord) + " " + facing_dir + " " + color_name + ".png", 100)
 
         if color_name in ["navy", "blue", "teal", "aqua"]:
