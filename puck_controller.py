@@ -358,6 +358,7 @@ def lookAround(maze_coord):
         facing_dir = getOrientation(position[2])
         if cell_info[facing_dir] == 1:
             is_not_facing_wall = getWallPresent()
+            camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
             addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
             if not is_not_facing_wall:
                 print("Wall seen on", facing_dir)
@@ -401,7 +402,7 @@ dollars = 0
 path = {}
 goal = getGoalCell()
 travelled_cells = set()
-position = [0.125, 0.375, 0]
+position = [0.125, 1.125, 0]
 encoder_offsets = [0, 0]
 m = maze(9, 8)
 m.solveMaze(path=MAZE_FILENAME)
