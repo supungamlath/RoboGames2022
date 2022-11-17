@@ -12,6 +12,7 @@ from maze_solver import *
 MOTOR_MAX_SPEED = 6.28
 SPEED = 1
 TURN_SPEED = 1
+CAPACITY = 3000
 SQUARE_LENGTH = 0.25
 GYRO_CALIB = -4.26176112037897e-06
 ENCODER_CALIB = 0.020002628550546703
@@ -65,6 +66,11 @@ class PuckController:
             self.distance_sensors.append(ds)
 
         # Maze initialization
+        try:
+            shutil.copy("saved_maze_empty.csv", "saved_maze.csv")
+            # shutil.rmtree("images")
+        except:
+            pass
         self.maze = Maze(9, 8)
         self.maze.loadMaze()
         self.money_drops = []
@@ -128,7 +134,7 @@ class PuckController:
         #   // robot position w.r.to Y direction
         self.position[1] -= displacement * math.cos(self.position[2])
 
-    def getWallPresent(self):
+    def getWallPresent(self, maze_coord, facing_dir):
         def closestColour(requested_colour):
             min_colours = {}
             for key, name in webcolors.html4_hex_to_names.items():
@@ -145,6 +151,8 @@ class PuckController:
         green = self.camera.imageGetGreen(image, width, 26, 30)
         red = self.camera.imageGetRed(image, width, 26, 30)
         color_name = closestColour((red, green, blue))
+        self.camera.saveImage("images\\" + str(maze_coord) + " " + facing_dir + " " + color_name + ".png", 100)
+
         if color_name in ["navy", "blue", "teal", "aqua"]:
             # Wall is present
             return 0
@@ -290,7 +298,7 @@ class PuckController:
 
         self.stopMotors()
 
-    def moveToNextCoord(self, current_coord, next_coord):
+    def moveToNextCell(self, current_coord, next_coord):
         print("Moving from", current_coord, "to", next_coord)
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
@@ -377,7 +385,7 @@ class PuckController:
 
         shutil.move(tempfile.name, "saved_maze.csv")
 
-    def worldToMazeCoords(self, coord):
+    def worldCoordToMazeCell(self, coord):
         # Note that the world and maze have switched x and y axes
         x = 4 - int(coord[0] // SQUARE_LENGTH)
         y = 5 + int(coord[1] // SQUARE_LENGTH)
@@ -386,9 +394,8 @@ class PuckController:
     def lookAround(self, maze_coord):
         def updateMazeAndSaveImage(cell_info):
             facing_dir = self.getOrientation(self.position[2])
-            if cell_info[facing_dir] == 1:
-                is_not_facing_wall = self.getWallPresent()
-                self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
+            if cell_info[facing_dir] == -1:
+                is_not_facing_wall = self.getWallPresent(maze_coord, facing_dir)
                 self.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
                 if not is_not_facing_wall:
                     print("Wall seen on", facing_dir)
@@ -401,35 +408,58 @@ class PuckController:
         facing_dir = self.getOrientation(self.position[2])
         cell_info = self.maze.maze_map[maze_coord]
         walls = [cell_info[d] for d in directions]
-        print(walls)
+        # print(walls)
         k = directions.index(facing_dir)
 
-        left_turns = 0
+        right_turns = 0
         for i in range(4):
-            if walls[k] == 1:
-                left_turns = i
-            k = (k+1) % 4
-        right_turns =  0
-        for i in range(4):
-            if walls[k] == 1:
+            if walls[k] == -1:
                 right_turns = i
+            k = (k+1) % 4
+        left_turns =  0
+        for i in range(4):
+            if walls[k] == -1:
+                left_turns = i
             k = (k-1) % 4
-        print("Left turns:", left_turns)
-        print("Right turns:", right_turns)
+
+        updateMazeAndSaveImage(cell_info)
         if right_turns > left_turns:
             for i in range(left_turns):
-                updateMazeAndSaveImage(cell_info)
                 self.turnLeft()
+                updateMazeAndSaveImage(cell_info)
         else:
             for i in range(right_turns):
-                updateMazeAndSaveImage(cell_info)
                 self.turnRight()
+                updateMazeAndSaveImage(cell_info)
 
-    def getGoalCell(self):
-        if len(self.money_drops) > 0:
-            return self.worldToMazeCoords(tuple(self.money_drops[0]))
+    def setPathAndGoal(self, current_cell):
+        if self.rupees == CAPACITY:
+            self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
+            self.maze.solveMaze(current_cell, self.goal)
+
+        elif len(self.money_drops) > 0:
+            paths = []
+            drops = []
+            for drop in self.money_drops:
+                drop_cell = self.worldCoordToMazeCell(drop)
+                if current_cell == drop_cell:
+                    continue
+                self.maze.solveMaze(current_cell, drop_cell)
+                paths.append(self.maze.path)
+                drops.append(drop_cell)
+
+            if len(paths) == 0:
+                self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
+                self.maze.solveMaze(current_cell, self.goal)
+                return 
+
+            self.maze.path = min(paths, key=len)       
+            self.goal = drops[paths.index(self.maze.path)]
+
         else:
-            return (9,4)
+            self.goal = (9,4)
+            self.maze.solveMaze(current_cell, self.goal)
+
 
     def test(self):
         self.turnLeft()
@@ -460,27 +490,26 @@ class PuckController:
 
             # State 1: Turn around to find walls
             elif state == 1:
-                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
-                self.travelled_cells.add(current_coord)
+                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                self.travelled_cells.add(current_cell)
                 
-                self.lookAround(current_coord)
-                self.maze.loadAndSolveMaze(current_coord, self.goal)
-                print(self.maze.path)
+                self.lookAround(current_cell)
+                self.maze.loadMaze()
 
                 state = 2
 
             # State 2: Move to money drop
             elif state == 2:
                 self.getReceiverData()
-                self.goal = self.getGoalCell()
-                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
-                self.maze.solveMaze(current_coord, self.goal)
+                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                self.setPathAndGoal(current_cell)
                 print(self.maze.path)
-                next_coord = self.maze.path[current_coord]
-                self.moveToNextCoord(current_coord, next_coord)
 
-                current_coord = self.worldToMazeCoords((self.position[0], self.position[1]))
-                if current_coord not in self.travelled_cells:
+                next_cell = self.maze.path[current_cell]
+                self.moveToNextCell(current_cell, next_cell)
+
+                current_cell = self.worldCoordToMazeCell((self.position[0], self.position[1]))
+                if current_cell not in self.travelled_cells:
                     state = 1
                 else:
                     state = 2
