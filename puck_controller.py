@@ -187,13 +187,15 @@ def turnRight():
     else:
         expected_bearing = TWO_PI
 
-    def should_turn(expected_bearing):
-        angle_to_turn = expected_bearing - position[2]
-        if angle_to_turn < 0:
-            angle_to_turn += TWO_PI
-        return not (0 <= angle_to_turn <= 0.03)
+    def should_turn(init_orien, expected_bearing):
+        turned_angle = position[2]
+        if init_orien == "W" and turned_angle < PI:
+            turned_angle += TWO_PI
+        elif init_orien == "N" and turned_angle > PI:
+            turned_angle -= TWO_PI
+        return turned_angle < expected_bearing
 
-    while should_turn(expected_bearing):
+    while should_turn(orientation, expected_bearing):
         left_motor.setVelocity(-TURN_SPEED)
         right_motor.setVelocity(TURN_SPEED)
         updatePosition()
@@ -212,14 +214,15 @@ def turnLeft():
     else:
         expected_bearing = PI
 
-    def should_turn(expected_bearing):
-        current_bearing = position[2]
-        angle_to_turn = current_bearing - expected_bearing
-        if angle_to_turn < 0:
-            angle_to_turn += TWO_PI
-        return not (0 <= angle_to_turn <= 0.03)
+    def should_turn(init_orien, expected_bearing):
+        turned_angle = position[2]
+        if init_orien == "E" and turned_angle > PI:
+            turned_angle -= TWO_PI
+        elif init_orien == "N" and turned_angle < PI:
+            turned_angle += TWO_PI
+        return turned_angle > expected_bearing
 
-    while should_turn(expected_bearing):
+    while should_turn(orientation, expected_bearing):
         left_motor.setVelocity(-TURN_SPEED)
         right_motor.setVelocity(TURN_SPEED)
         updatePosition()
@@ -239,14 +242,18 @@ def goFoward():
         target = position[0] + SQUARE_LENGTH
     target = round(target * 8) / 8
 
-    def should_turn(target):
-        if orientation == "N" or orientation == "S":
-            distance_remaining = abs(position[1] - target)
-        else:
-            distance_remaining = abs(position[0] - target)
-        return distance_remaining > 0.005
+    def should_move(init_orien, target):
+        # print(position[0], position[1], target)
+        if init_orien == "N":
+            return position[1] > target
+        elif init_orien == "S":
+            return position[1] < target
+        elif init_orien == "E":
+            return position[0] > target
+        elif init_orien == "W":
+            return position[0] < target
 
-    while should_turn(target):
+    while should_move(orientation, target):
         left_motor.setVelocity(SPEED)
         right_motor.setVelocity(SPEED)
         updatePosition()
