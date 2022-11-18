@@ -1,12 +1,7 @@
-# Setup Webots external controller, comment this out before submitting
-import sys
-
-sys.path.append("E:\Program Files\Webots\lib\controller\python39")
-
 from controller import Robot
 import json, csv, shutil, math, webcolors
 from tempfile import NamedTemporaryFile
-from maze_solver import *
+from maze import *
 
 ### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
