@@ -63,7 +63,6 @@ class PuckController:
         # Maze initialization
         try:
             shutil.copy("saved_maze_empty.csv", "saved_maze.csv")
-            # shutil.rmtree("images")
         except:
             pass
         self.maze = Maze(9, 8)
@@ -247,7 +246,6 @@ class PuckController:
         target = round(target * 8) / 8
 
         def should_move(init_orien, target):
-            # print(position[0], position[1], target)
             if init_orien == "N":
                 return self.position[1] > target
             elif init_orien == "S":
@@ -278,7 +276,6 @@ class PuckController:
         target = round(target * 8) / 8
 
         def should_move(init_orien, target):
-            # print(position[0], position[1], target)
             if init_orien == "N":
                 return self.position[1] < target
             elif init_orien == "S":
