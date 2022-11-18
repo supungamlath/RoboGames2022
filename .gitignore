@@ -2,3 +2,5 @@ __pycache__/
 .vscode/
 images/
 tests/
+controller.py
+_controller.pyd
