@@ -1,9 +1,0 @@
-{
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
-  "python.formatting.provider": "black",
-  "python.formatting.yapfPath": "C:\\Python39\\Lib\\site-packages\\yapf",
-  "python.formatting.blackPath": "C:\\Python39\\Lib\\site-packages\\black",
-  "editor.formatOnSave": true
-}
