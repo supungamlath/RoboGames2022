@@ -1,13 +1,15 @@
-import csv
+import csv, shutil
 from collections import deque
+from tempfile import NamedTemporaryFile
 
 class Maze:
-    def __init__(self, rows, cols):
+    def __init__(self, rows, cols, filename="saved_maze.csv"):
         self.rows = rows
         self.cols = cols
         self.maze_map = {}
         self.grid = []
         self.path = {}
+        self.filename = filename
 
     def BFS(self, cell, goal):
         start = cell
@@ -47,16 +49,10 @@ class Maze:
                 print("Path to goal not found!")
                 return
         return path_dict
- 
-    def solveMaze(self, start, goal):
-        self.path = self.BFS(start, goal)
 
-    def getPathLength(self, start, goal):
-        return len(self.BFS(start, goal))
-        
-    def loadMaze(self, filename="saved_maze.csv"):
+    def loadMaze(self):
         # Load maze from CSV file
-        with open(filename, "r") as f:
+        with open(self.filename, "r") as f:
             last = list(f.readlines())[-1]
             c = last.split(",")
             c[0] = int(c[0].lstrip('"('))
@@ -65,7 +61,7 @@ class Maze:
             self.cols = c[1]
             self.grid = []
 
-        with open(filename, "r") as f:
+        with open(self.filename, "r") as f:
             r = csv.reader(f)
             next(r)
             for i in r:
@@ -78,6 +74,50 @@ class Maze:
                     "N": int(i[3]),
                     "S": int(i[4]),
                 }
+
+    def addWallToMaze(self, cell, direction, wall_present):
+        def getOppositeDir(direction):
+            if direction == "N":
+                return "S"
+            elif direction == "E":
+                return "W"
+            elif direction == "S":
+                return "N"
+            elif direction == "W":
+                return "E"
+
+        def getAdjacentCell(cell, direction):
+            if direction == "N":
+                return (cell[0] - 1, cell[1])
+            elif direction == "E":
+                return (cell[0], cell[1] + 1)
+            elif direction == "S":
+                return (cell[0] + 1, cell[1])
+            elif direction == "W":
+                return (cell[0], cell[1] - 1)
+
+        fields = ["  cell  ", "E", "W", "N", "S"]
+        tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
+        with open(self.filename, "r", newline="") as csvfile, tempfile:
+            reader = csv.DictReader(csvfile, fieldnames=fields)
+            writer = csv.DictWriter(tempfile, fieldnames=fields)
+
+            adj_cell = getAdjacentCell(cell, direction)
+            for row in reader:
+                if row["  cell  "] == str(cell):
+                    row[direction] = wall_present
+                elif row["  cell  "] == str(adj_cell):
+                    row[getOppositeDir(direction)] = wall_present
+
+                writer.writerow(row)
+
+        shutil.move(tempfile.name, self.filename)
+
+    def solveMaze(self, start, goal):
+        self.path = self.BFS(start, goal)
+
+    def getPathLength(self, start, goal):
+        return len(self.BFS(start, goal))
 
     def loadAndSolveMaze(self, start, goal):
         self.loadMaze()

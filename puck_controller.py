@@ -1,7 +1,6 @@
 from controller import Robot
-import json, csv, shutil, math, webcolors
-from tempfile import NamedTemporaryFile
-from maze import *
+import json, shutil, math, webcolors
+from maze import Maze
 
 ### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
@@ -81,11 +80,11 @@ class PuckController:
     def getOrientation(self, angle):
         if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
             return "N"
-        elif angle >= QUARTER_PI and angle < (HALF_PI + QUARTER_PI):
+        elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
             return "E"
-        elif angle >= (HALF_PI + QUARTER_PI) and angle < (PI + QUARTER_PI):
+        elif (HALF_PI + QUARTER_PI) <= angle < (PI + QUARTER_PI):
             return "S"
-        elif angle >= (PI + QUARTER_PI) and angle < (TWO_PI - QUARTER_PI):
+        elif (PI + QUARTER_PI) <= angle < (TWO_PI - QUARTER_PI):
             return "W"
 
     def updatePosition(self):
@@ -341,44 +340,6 @@ class PuckController:
                 self.goFoward()
 
     ### Maze Functions ###
-    def addWallToMaze(self, cell, dir, wall_present):
-        def getOppositeDir(dir):
-            if dir == "N":
-                return "S"
-            elif dir == "E":
-                return "W"
-            elif dir == "S":
-                return "N"
-            elif dir == "W":
-                return "E"
-
-        def getAdjacentCell(cell, dir):
-            if dir == "N":
-                return (cell[0] - 1, cell[1])
-            elif dir == "E":
-                return (cell[0], cell[1] + 1)
-            elif dir == "S":
-                return (cell[0] + 1, cell[1])
-            elif dir == "W":
-                return (cell[0], cell[1] - 1)
-
-        fields = ["  cell  ", "E", "W", "N", "S"]
-        tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
-        with open("saved_maze.csv", "r", newline="") as csvfile, tempfile:
-            reader = csv.DictReader(csvfile, fieldnames=fields)
-            writer = csv.DictWriter(tempfile, fieldnames=fields)
-
-            adj_cell = getAdjacentCell(cell, dir)
-            for row in reader:
-                if row["  cell  "] == str(cell):
-                    row[dir] = wall_present
-                elif row["  cell  "] == str(adj_cell):
-                    row[getOppositeDir(dir)] = wall_present
-
-                writer.writerow(row)
-
-        shutil.move(tempfile.name, "saved_maze.csv")
-
     def worldCoordToMazeCell(self, coord):
         # Note that the world and maze have switched x and y axes
         x = 4 - int(coord[0] // SQUARE_LENGTH)
@@ -390,7 +351,7 @@ class PuckController:
             facing_dir = self.getOrientation(self.position[2])
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent(maze_coord, facing_dir)
-                self.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
+                self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
                 if not is_not_facing_wall:
                     print("Wall seen on", facing_dir)
                 else:
