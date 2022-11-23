@@ -1,3 +1,6 @@
+# import sys
+# sys.path.append("E:\Program Files\Webots\lib\controller\python39")
+
 from controller import Robot
 import json, math
 from maze import Maze
@@ -35,6 +38,7 @@ class PuckController:
         self.camera = self.robot.getDevice("camera")
         # self.camera.setFov(0.62)
         self.camera.enable(self.timestep)
+        self.color_detector = ColorDetector(self.camera)
     
         # Motor initialization
         self.left_motor = self.robot.getDevice("left wheel motor")
