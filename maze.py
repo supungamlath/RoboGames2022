@@ -2,7 +2,6 @@ import csv, shutil
 from collections import deque
 from tempfile import NamedTemporaryFile
 
-
 class Maze:
     def __init__(self, rows, cols, filename="saved_maze.csv"):
         self.rows = rows
@@ -11,6 +10,7 @@ class Maze:
         self.grid = []
         self.path = {}
         self.filename = filename
+        self.fields = ["  cell  ", "E", "W", "N", "S"]
         self.empty_maze = """  cell  ,E,W,N,S
 "(1, 1)",-1,0,0,-1
 "(2, 1)",-1,0,-1,-1
@@ -129,28 +129,15 @@ class Maze:
 
     def loadMaze(self):
         # Load maze from CSV file
-        with open(self.filename, "r") as f:
-            last = list(f.readlines())[-1]
-            c = last.split(",")
-            c[0] = int(c[0].lstrip('"('))
-            c[1] = int(c[1].rstrip(')"'))
-            self.rows = c[0]
-            self.cols = c[1]
-            self.grid = []
+        with open(self.filename, "r", newline="") as f:
+            for row in csv.DictReader(f):
+                cell = [int(i) for i in row["  cell  "].strip("()").split(", ")]
+                self.maze_map[tuple(cell)] = {
+                    "E": int(row["E"]),
+                    "W": int(row["W"]),
+                    "N": int(row["N"]),
+                    "S": int(row["S"])}
 
-        with open(self.filename, "r") as f:
-            r = csv.reader(f)
-            next(r)
-            for i in r:
-                c = i[0].split(",")
-                c[0] = int(c[0].lstrip("("))
-                c[1] = int(c[1].rstrip(")"))
-                self.maze_map[tuple(c)] = {
-                    "E": int(i[1]),
-                    "W": int(i[2]),
-                    "N": int(i[3]),
-                    "S": int(i[4]),
-                }
 
     def addWallToMaze(self, cell, direction, wall_present):
         def getOppositeDir(direction):
@@ -173,11 +160,10 @@ class Maze:
             elif direction == "W":
                 return (cell[0], cell[1] - 1)
 
-        fields = ["  cell  ", "E", "W", "N", "S"]
         tempfile = NamedTemporaryFile("w+t", newline="", delete=False)
         with open(self.filename, "r", newline="") as csvfile, tempfile:
-            reader = csv.DictReader(csvfile, fieldnames=fields)
-            writer = csv.DictWriter(tempfile, fieldnames=fields)
+            reader = csv.DictReader(csvfile, fieldnames=self.fields)
+            writer = csv.DictWriter(tempfile, fieldnames=self.fields)
 
             adj_cell = getAdjacentCell(cell, direction)
             for row in reader:
