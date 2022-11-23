@@ -319,14 +319,8 @@ class PuckController:
         def updateMazeAndSaveImage(cell_info):
             facing_dir = self.getOrientation(self.position[2])
             if cell_info[facing_dir] == -1:
-                is_not_facing_wall = self.getWallPresent(maze_coord, facing_dir)
+                is_not_facing_wall = self.getWallPresent()
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-                if not is_not_facing_wall:
-                    print("Wall seen on", facing_dir)
-                else:
-                    print("No wall seen on", facing_dir)
-            else:
-                print("Wall known on", facing_dir)
 
         directions = ["N", "E", "S", "W"]
         facing_dir = self.getOrientation(self.position[2])
