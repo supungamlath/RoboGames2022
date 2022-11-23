@@ -6,24 +6,28 @@ import json, math
 from maze import Maze
 from color_detector import ColorDetector
 
-### Robot Constants ###
-MOTOR_MAX_SPEED = 6.28
-SPEED = 1.5
-TURN_SPEED = 1.5
-CAPACITY = 3000
-SQUARE_LENGTH = 0.25
-GYRO_CALIB = -4.26176112037897e-06
-ENCODER_CALIB = 0.020002628550546703
-CAMERA_TEST_ROW = 28
-
-# WHEEL_RADIUS = 0.0205
-# AXLE_LENGTH = 0.052
-
 ### Math Constants ###
 TWO_PI = math.pi * 2
 PI = math.pi
 HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
+
+### Robot Constants ###
+MOTOR_MAX_SPEED = 6.28
+SPEED = 1.5
+TURN_SPEED = 1.5
+CAPACITY = 3000
+GYRO_CALIB = -4.26176112037897e-06
+ENCODER_CALIB = 0.020002628550546703
+CAMERA_TEST_ROW = 28
+# WHEEL_RADIUS = 0.0205
+# AXLE_LENGTH = 0.052
+
+### Maze Constants ###
+SQUARE_LENGTH = 0.25
+INITIAL_POSITION = [0.0843846, 0.62838]
+INITIAL_HEADING = HALF_PI
+
 
 class PuckController:
     def __init__(self):
@@ -66,7 +70,7 @@ class PuckController:
         self.exchanger_cell = None
         self.goal = (1, 1)
         self.travelled_cells = set()
-        self.position = [0.0843846, 0.62838, HALF_PI]
+        self.position = [INITIAL_POSITION[0], INITIAL_POSITION[1], INITIAL_HEADING]
         
         # Game variables
         self.rupees = 0
@@ -212,6 +216,7 @@ class PuckController:
         elif orientation == "W":
             target = self.position[0] + SQUARE_LENGTH
         target = round(target * 8) / 8
+        print("Target: ", target)
 
         def should_move(init_orien, target):
             if init_orien == "N":
