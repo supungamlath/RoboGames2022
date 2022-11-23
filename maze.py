@@ -122,7 +122,7 @@ class Maze:
             try:
                 path_dict[path[cell]] = cell
                 cell = path[cell]
-            except:
+            except KeyError:
                 print("Path from", start, "to", goal, "does not exist")
                 return
         return path_dict
