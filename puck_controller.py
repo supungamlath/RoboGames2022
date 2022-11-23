@@ -1,6 +1,7 @@
 from controller import Robot
-import json, math, webcolors
+import json, math
 from maze import Maze
+from color_detector import ColorDetector
 
 ### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
@@ -10,6 +11,8 @@ CAPACITY = 3000
 SQUARE_LENGTH = 0.25
 GYRO_CALIB = -4.26176112037897e-06
 ENCODER_CALIB = 0.020002628550546703
+CAMERA_TEST_ROW = 28
+
 # WHEEL_RADIUS = 0.0205
 # AXLE_LENGTH = 0.052
 
@@ -114,28 +117,9 @@ class PuckController:
         #   Update in position along Y direction
         self.position[1] -= displacement * math.cos(self.position[2])
 
-    def getWallPresent(self, maze_coord, facing_dir):
-        def closestColour(requested_colour):
-            min_colours = {}
-            for key, name in webcolors.html4_hex_to_names.items():
-                r_c, g_c, b_c = webcolors.hex_to_rgb(key)
-                rd = (r_c - requested_colour[0]) ** 2
-                gd = (g_c - requested_colour[1]) ** 2
-                bd = (b_c - requested_colour[2]) ** 2
-                min_colours[(rd + gd + bd)] = name
-            return min_colours[min(min_colours.keys())]
-
-        image = self.camera.getImage()
-        width = self.camera.getWidth()
-        blue, green, red = 0, 0, 0
-        for w in range(width):
-            blue += self.camera.imageGetBlue(image, width, w, 28)
-            green += self.camera.imageGetGreen(image, width, w, 28)
-            red += self.camera.imageGetRed(image, width, w, 28)
-        color_name = closestColour((red//width, green//width, blue//width))
-        self.camera.saveImage("images\\" + str(maze_coord) + " " + facing_dir + " " + color_name + ".png", 100)
-
-        if color_name in ["navy", "blue", "teal", "aqua"]:
+    def getWallPresent(self):
+        valid_colors = ["navy", "blue", "teal", "aqua"]
+        if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_ROW):
             # Wall is present
             return 0
         # Wall is not present
