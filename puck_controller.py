@@ -63,7 +63,8 @@ class PuckController:
         self.dollars = 0
 
     ### Sensor Functions ###
-    def getOrientation(self, angle):
+    @staticmethod
+    def getOrientation(angle):
         if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
             return "N"
         elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
@@ -324,7 +325,8 @@ class PuckController:
                 return self.goFoward()
 
     ### Maze Functions ###
-    def worldCoordToMazeCell(self, coord):
+    @staticmethod
+    def worldCoordToMazeCell(coord):
         # Note that the world and maze have switched x and y axes
         x = 4 - int(coord[0] // SQUARE_LENGTH)
         y = 5 + int(coord[1] // SQUARE_LENGTH)
