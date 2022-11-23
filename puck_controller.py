@@ -1,5 +1,5 @@
 from controller import Robot
-import json, shutil, math, webcolors
+import json, math, webcolors
 from maze import Maze
 
 ### Robot Constants ###
@@ -30,7 +30,7 @@ class PuckController:
    
         # Camera initialization
         self.camera = self.robot.getDevice("camera")
-        self.camera.setFov(0.62)
+        # self.camera.setFov(0.62)
         self.camera.enable(self.timestep)
     
         # Motor initialization
@@ -52,18 +52,7 @@ class PuckController:
         self.gyro = self.robot.getDevice("gyro")
         self.gyro.enable(self.timestep)
    
-        # Proximity sensor initialization
-        self.distance_sensors = []
-        for i in range(8):
-            ds = self.robot.getDevice("ps" + str(i))
-            ds.enable(self.timestep)
-            self.distance_sensors.append(ds)
-
         # Maze initialization
-        try:
-            shutil.copy("saved_maze_empty.csv", "saved_maze.csv")
-        except:
-            pass
         self.maze = Maze(9, 8)
         self.maze.loadMaze()
         self.money_drops = []
@@ -103,9 +92,9 @@ class PuckController:
 
         # Function to return displacements of left and right wheel given encoder angles
         def getWheelDisplacements(left_angle, right_angle):
-            # compute displacement of left wheel in meters
+            # Compute displacement of left wheel in meters
             left_disp = left_angle * ENCODER_CALIB
-            # compute displacement of right wheel in meters
+            # Compute displacement of right wheel in meters
             right_disp = right_angle * ENCODER_CALIB
             return left_disp, right_disp
 
@@ -120,11 +109,9 @@ class PuckController:
 
         left_angle, right_angle = getEncoderAngles()
         displacement = sum(getWheelDisplacements(left_angle, right_angle)) / 2
-        #   // Update position vector:
-        #   // Update in position along X direction
+        #   Update in position along X direction
         self.position[0] -= displacement * math.sin(self.position[2])
-        #   // Update in position along Y direction
-        #   // robot position w.r.to Y direction
+        #   Update in position along Y direction
         self.position[1] -= displacement * math.cos(self.position[2])
 
     def getWallPresent(self, maze_coord, facing_dir):
@@ -142,9 +129,9 @@ class PuckController:
         width = self.camera.getWidth()
         blue, green, red = 0, 0, 0
         for w in range(width):
-            blue += self.camera.imageGetBlue(image, width, w, 30)
-            green += self.camera.imageGetGreen(image, width, w, 30)
-            red += self.camera.imageGetRed(image, width, w, 30)
+            blue += self.camera.imageGetBlue(image, width, w, 28)
+            green += self.camera.imageGetGreen(image, width, w, 28)
+            red += self.camera.imageGetRed(image, width, w, 28)
         color_name = closestColour((red//width, green//width, blue//width))
         self.camera.saveImage("images\\" + str(maze_coord) + " " + facing_dir + " " + color_name + ".png", 100)
 
@@ -164,12 +151,6 @@ class PuckController:
             self.exchanger_cell = tuple(rec_data["goal"])
 
             self.receiver.nextPacket()
-
-    def isWallInProximity(self):
-        if (self.distance_sensors[0].getValue() > 140) and (
-            self.distance_sensors[7].getValue() > 140
-        ):
-            return True
 
     ### Motion Functions ###
     def stopMotors(self):
@@ -418,21 +399,14 @@ class PuckController:
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
 
-    def calibrate(self):
-        pass
-
     ### Main function ###
     def run(self):
         state = 1
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
 
-            # State 0: Gyro and Encoder calibration
-            if state == 0:
-                self.calibrate()
-
             # State 1: Turn around to find walls
-            elif state == 1:
+            if state == 1:
                 current_cell = self.getCurrentCell()
                 self.travelled_cells.add(current_cell)
                 
@@ -446,7 +420,7 @@ class PuckController:
                 self.setTransmittedData()
                 current_cell = self.getCurrentCell()
                 self.setPathAndGoal(current_cell)
-                print(self.maze.path)
+                # print(self.maze.path)
 
                 next_cell = self.maze.path[current_cell]
                 self.moveToNextCell(current_cell, next_cell)

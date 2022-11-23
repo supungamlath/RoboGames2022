@@ -3,16 +3,20 @@ from collections import deque
 from tempfile import NamedTemporaryFile
 
 class Maze:
-    def __init__(self, rows, cols, filename="saved_maze.csv"):
+    def __init__(self, rows, cols, filename="saved_maze.csv", empty_maze_filename="saved_maze_empty.csv"):
         self.rows = rows
         self.cols = cols
         self.maze_map = {}
         self.grid = []
         self.path = {}
         self.filename = filename
+        try:
+            shutil.copy(empty_maze_filename, filename)
+        except IOError as e:
+            print ("Unable to copy file.", e)
 
-    def BFS(self, cell, goal):
-        start = cell
+    def BFS(self, start, goal):
+        cell = start
         frontier = deque()
         frontier.append(cell)
         path = {}
@@ -46,7 +50,7 @@ class Maze:
                 path_dict[path[cell]] = cell
                 cell = path[cell]
             except:
-                print("Path to goal not found!")
+                print("Path from", start, "to", goal, "does not exist")
                 return
         return path_dict
 
