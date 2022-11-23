@@ -66,7 +66,7 @@ class PuckController:
         self.exchanger_cell = None
         self.goal = (1, 1)
         self.travelled_cells = set()
-        self.position = [0.125, 1.125, 0]
+        self.position = [0.0843846, 0.62838, HALF_PI]
         
         # Game variables
         self.rupees = 0
