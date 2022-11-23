@@ -2,18 +2,91 @@ import csv, shutil
 from collections import deque
 from tempfile import NamedTemporaryFile
 
+
 class Maze:
-    def __init__(self, rows, cols, filename="saved_maze.csv", empty_maze_filename="saved_maze_empty.csv"):
+    def __init__(self, rows, cols, filename="saved_maze.csv"):
         self.rows = rows
         self.cols = cols
         self.maze_map = {}
         self.grid = []
         self.path = {}
         self.filename = filename
-        try:
-            shutil.copy(empty_maze_filename, filename)
-        except IOError as e:
-            print ("Unable to copy file.", e)
+        self.empty_maze = """  cell  ,E,W,N,S
+                        "(1, 1)",-1,0,0,-1
+                        "(2, 1)",-1,0,-1,-1
+                        "(3, 1)",-1,0,-1,-1
+                        "(4, 1)",-1,0,-1,-1
+                        "(5, 1)",-1,0,-1,-1
+                        "(6, 1)",-1,0,-1,-1
+                        "(7, 1)",-1,0,-1,-1
+                        "(8, 1)",-1,0,-1,0
+                        "(9, 1)",-1,0,0,0
+                        "(1, 2)",-1,-1,0,-1
+                        "(2, 2)",-1,-1,-1,-1
+                        "(3, 2)",-1,-1,-1,-1
+                        "(4, 2)",-1,-1,-1,-1
+                        "(5, 2)",-1,-1,-1,-1
+                        "(6, 2)",-1,-1,-1,-1
+                        "(7, 2)",-1,-1,-1,-1
+                        "(8, 2)",-1,-1,-1,0
+                        "(9, 2)",-1,-1,0,0
+                        "(1, 3)",-1,-1,0,-1
+                        "(2, 3)",-1,-1,-1,-1
+                        "(3, 3)",-1,-1,-1,-1
+                        "(4, 3)",-1,-1,-1,-1
+                        "(5, 3)",-1,-1,-1,-1
+                        "(6, 3)",-1,-1,-1,-1
+                        "(7, 3)",-1,-1,-1,-1
+                        "(8, 3)",-1,-1,-1,0
+                        "(9, 3)",0,-1,0,0
+                        "(1, 4)",-1,-1,0,-1
+                        "(2, 4)",-1,-1,-1,-1
+                        "(3, 4)",-1,-1,-1,-1
+                        "(4, 4)",-1,-1,-1,-1
+                        "(5, 4)",-1,-1,-1,-1
+                        "(6, 4)",-1,-1,-1,-1
+                        "(7, 4)",-1,-1,-1,-1
+                        "(8, 4)",-1,-1,-1,-1
+                        "(9, 4)",-1,0,-1,0
+                        "(1, 5)",-1,-1,0,-1
+                        "(2, 5)",-1,-1,-1,-1
+                        "(3, 5)",-1,-1,-1,-1
+                        "(4, 5)",-1,-1,-1,-1
+                        "(5, 5)",-1,-1,-1,-1
+                        "(6, 5)",-1,-1,-1,-1
+                        "(7, 5)",-1,-1,-1,-1
+                        "(8, 5)",-1,-1,-1,-1
+                        "(9, 5)",0,-1,-1,0
+                        "(1, 6)",-1,-1,0,-1
+                        "(2, 6)",-1,-1,-1,-1
+                        "(3, 6)",-1,-1,-1,-1
+                        "(4, 6)",-1,-1,-1,-1
+                        "(5, 6)",-1,-1,-1,-1
+                        "(6, 6)",-1,-1,-1,-1
+                        "(7, 6)",-1,-1,-1,-1
+                        "(8, 6)",-1,-1,-1,0
+                        "(9, 6)",-1,0,0,0
+                        "(1, 7)",-1,-1,0,-1
+                        "(2, 7)",-1,-1,-1,-1
+                        "(3, 7)",-1,-1,-1,-1
+                        "(4, 7)",-1,-1,-1,-1
+                        "(5, 7)",-1,-1,-1,-1
+                        "(6, 7)",-1,-1,-1,-1
+                        "(7, 7)",-1,-1,-1,-1
+                        "(8, 7)",-1,-1,-1,0
+                        "(9, 7)",-1,-1,0,0
+                        "(1, 8)",0,-1,0,-1
+                        "(2, 8)",0,-1,-1,-1
+                        "(3, 8)",0,-1,-1,-1
+                        "(4, 8)",0,-1,-1,-1
+                        "(5, 8)",0,-1,-1,-1
+                        "(6, 8)",0,-1,-1,-1
+                        "(7, 8)",0,-1,-1,-1
+                        "(8, 8)",0,-1,-1,0
+                        "(9, 8)",0,-1,0,0
+        """
+        with open(self.filename, "w") as f:
+            f.write(self.empty_maze)
 
     def BFS(self, start, goal):
         cell = start
@@ -101,7 +174,7 @@ class Maze:
                 return (cell[0], cell[1] - 1)
 
         fields = ["  cell  ", "E", "W", "N", "S"]
-        tempfile = NamedTemporaryFile('w+t', newline='', delete=False)
+        tempfile = NamedTemporaryFile("w+t", newline="", delete=False)
         with open(self.filename, "r", newline="") as csvfile, tempfile:
             reader = csv.DictReader(csvfile, fieldnames=fields)
             writer = csv.DictWriter(tempfile, fieldnames=fields)
