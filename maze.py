@@ -179,8 +179,8 @@ class Maze:
     def solveMaze(self, start, goal):
         self.path = self.BFS(start, goal)
 
-    def getPathLength(self, start, goal):
-        return len(self.BFS(start, goal))
+    def getPath(self, start, goal):
+        return self.BFS(start, goal)
 
     def loadAndSolveMaze(self, start, goal):
         self.loadMaze()

@@ -52,8 +52,8 @@ class PuckController:
         self.maze = Maze(9, 8)
         self.maze.loadMaze()
         self.money_drops = []
-        self.exchanger_cell = None
-        self.goal = (1, 1)
+        self.exchanger_loc = None
+        self.path = None
         self.travelled_cells = set()
         self.position = [0, 0, 0]
 
@@ -90,7 +90,7 @@ class PuckController:
             self.money_drops = rec_data["collectibles"]
             self.rupees = rec_data["rupees"]
             self.dollars = rec_data["dollars"]
-            self.exchanger_cell = tuple(rec_data["goal"])
+            self.exchanger_loc = tuple(rec_data["goal"])
             self.position = rec_data["robot"]
             in_angle = math.radians(rec_data["robotAngleDegrees"])
             heading = (PI + HALF_PI) - in_angle
@@ -374,32 +374,27 @@ class PuckController:
                 updateMazeAndSaveImage(cell_info)
 
     def setPathAndGoal(self, current_cell):
-        if self.rupees == CAPACITY:
-            self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
-            self.maze.solveMaze(current_cell, self.goal)
+        def getShortestPath(locations):
+            min_length = 1000
+            min_path = None
+            for location in locations:
+                cell = self.worldCoordToMazeCell(location)
+                path = self.maze.getPath(current_cell, cell)
+                if len(path) < min_length:
+                    min_length = len(path)
+                    min_path = path
 
-        elif len(self.money_drops) > 0:
-            paths = []
-            drops = []
-            for drop in self.money_drops:
-                drop_cell = self.worldCoordToMazeCell(drop)
-                if current_cell == drop_cell:
-                    continue
-                self.maze.solveMaze(current_cell, drop_cell)
-                paths.append(self.maze.path)
-                drops.append(drop_cell)
+            return min_path
 
-            if len(paths) == 0:
-                self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
-                self.maze.solveMaze(current_cell, self.goal)
-                return
-
-            self.maze.path = min(paths, key=len)
-            self.goal = drops[paths.index(self.maze.path)]
-
+        if len(self.money_drops) > 0 and self.rupees == 0:
+            self.path = getShortestPath(self.money_drops)
+        elif self.rupees == CAPACITY:
+            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
+            self.path = self.maze.getPath(current_cell, exchanger_cell)
+        elif len(self.money_drops) > 0 and self.rupees > 0:
+            self.path = getShortestPath(self.money_drops + [self.exchanger_loc])
         else:
-            self.goal = (9, 4)
-            self.maze.solveMaze(current_cell, self.goal)
+            self.path = self.maze.getPath(current_cell, (1,1))
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
@@ -412,7 +407,8 @@ class PuckController:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
             if self.time: print("Efficiency", self.dollars/self.time*3600)
-            # Goal Algorithm V1 30 min Efficency: 0.23269213722187745
+            # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
+            # Goal Algorithm V1 30 Minute Efficency: 0.20543138369696537
 
             # State 1: Turn around to find walls
             if state == 1:
@@ -428,9 +424,8 @@ class PuckController:
             elif state == 2:
                 current_cell = self.getCurrentCell()
                 self.setPathAndGoal(current_cell)
-                # print(self.maze.path)
 
-                next_cell = self.maze.path[current_cell]
+                next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):
                     print("Error moving to cell", next_cell)
 
