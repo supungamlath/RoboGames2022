@@ -386,7 +386,7 @@ class PuckController:
 
             return min_path
 
-        if len(self.money_drops) > 0 and self.rupees == 0:
+        if len(self.money_drops) > 0 and self.rupees < 2000:
             self.path = getShortestPath(self.money_drops)
         elif self.rupees == CAPACITY:
             exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
@@ -408,7 +408,8 @@ class PuckController:
             self.setTransmittedData()
             if self.time: print("Efficiency", self.dollars/self.time*3600)
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
-            # Goal Algorithm V1 30 Minute Efficency: 0.20543138369696537
+            # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
+            # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
 
             # State 1: Turn around to find walls
             if state == 1:
