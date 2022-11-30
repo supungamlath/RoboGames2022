@@ -1,5 +1,5 @@
-# import sys
-# sys.path.append("E:\Program Files\Webots\lib\controller\python39")
+import sys
+sys.path.append("E:\Program Files\Webots\lib\controller\python39")
 
 from controller import Robot
 import json, math
@@ -109,7 +109,7 @@ class PuckController:
         return True
 
     def turnRight(self):
-        print("Turning right")
+        # print("Turning right")
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
             expected_bearing = HALF_PI
@@ -137,7 +137,7 @@ class PuckController:
         self.stopMotors()
 
     def turnLeft(self):
-        print("Turning left")
+        # print("Turning left")
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
             expected_bearing = PI + HALF_PI
@@ -165,7 +165,7 @@ class PuckController:
         self.stopMotors()
 
     def goFoward(self):
-        print("Going foward")
+        # print("Going foward")
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
@@ -221,7 +221,7 @@ class PuckController:
         return True
 
     def goBackward(self):
-        print("Going backward")
+        # print("Going backward")
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
@@ -277,7 +277,7 @@ class PuckController:
         return True
 
     def moveToNextCell(self, current_cell, next_cell):
-        print("Moving from", current_cell, "to", next_cell)
+        # print("Moving from", current_cell, "to", next_cell)
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
             if next_cell[0] < current_cell[0]:
@@ -338,12 +338,12 @@ class PuckController:
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent()
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-                if not is_not_facing_wall:
-                    print("Wall seen on", facing_dir)
-                else:
-                    print("No wall seen on", facing_dir)
-            else:
-                print("Wall known on", facing_dir)
+            #     if not is_not_facing_wall:
+            #         print("Wall seen on", facing_dir)
+            #     else:
+            #         print("No wall seen on", facing_dir)
+            # else:
+            #     print("Wall known on", facing_dir)
 
         directions = ["N", "E", "S", "W"]
         facing_dir = self.getOrientation(self.position[2])
@@ -411,6 +411,8 @@ class PuckController:
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
+            if self.time: print("Efficiency", self.dollars/self.time*3600)
+            # Goal Algorithm V1 30 min Efficency: 0.23269213722187745
 
             # State 1: Turn around to find walls
             if state == 1:
