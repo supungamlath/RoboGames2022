@@ -386,15 +386,16 @@ class PuckController:
 
             return min_path
 
-        if len(self.money_drops) > 0 and self.rupees < 2000:
+        if len(self.money_drops) > 0 and self.rupees == 2000:
+            self.path = getShortestPath(self.money_drops + [self.exchanger_loc])
+        elif len(self.money_drops) > 0 and self.rupees < 2000:
             self.path = getShortestPath(self.money_drops)
         elif self.rupees == CAPACITY:
             exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
             self.path = self.maze.getPath(current_cell, exchanger_cell)
-        elif len(self.money_drops) > 0 and self.rupees > 0:
-            self.path = getShortestPath(self.money_drops + [self.exchanger_loc])
         else:
             self.path = self.maze.getPath(current_cell, (1,1))
+            print("Targetless (Learning Path Only)")
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
@@ -406,11 +407,14 @@ class PuckController:
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
-            if self.time: print("Efficiency", self.dollars/self.time*3600)
+            # if self.time: print("Efficiency", self.dollars/self.time*3600)
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
             # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
             # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
 
+            # Goal Algorithm V2 1 Hour Count: 241.666
+            # Goal Algorithm V3 1 Hour Count: 255.555
+            
             # State 1: Turn around to find walls
             if state == 1:
                 current_cell = self.getCurrentCell()
