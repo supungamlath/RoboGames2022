@@ -1,5 +1,5 @@
 import sys
-sys.path.append("E:\Program Files\Webots\lib\controller\python39")
+sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
 
 from controller import Robot
 import json, math
@@ -381,7 +381,7 @@ class PuckController:
                 path = self.maze.getPath(current_cell, return_cell)
                 for loc in target_locs:                
                     cell = self.worldCoordToMazeCell(loc)
-                    if cell in path.keys():
+                    if cell in path:
                         return path
             
             min_length = 1000
