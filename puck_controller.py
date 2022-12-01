@@ -375,6 +375,15 @@ class PuckController:
 
     def setPath(self, current_cell):
         def getShortestPath(target_locs, return_loc):
+            if return_loc:
+                target_locs.append(return_loc)
+                return_cell = self.worldCoordToMazeCell(return_loc)
+                path = self.maze.getPath(current_cell, return_cell)
+                for loc in target_locs:                
+                    cell = self.worldCoordToMazeCell(loc)
+                    if cell in path.keys():
+                        return path
+            
             min_length = 1000
             min_path = None
             for loc in target_locs:
@@ -387,9 +396,9 @@ class PuckController:
             return min_path
 
         if len(self.money_drops) > 0 and self.rupees == 2000:
-            self.path = getShortestPath(self.money_drops + [self.exchanger_loc])
+            self.path = getShortestPath(self.money_drops, self.exchanger_loc)
         elif len(self.money_drops) > 0 and self.rupees < 2000:
-            self.path = getShortestPath(self.money_drops)
+            self.path = getShortestPath(self.money_drops, None)
         elif self.rupees == CAPACITY:
             exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
             self.path = self.maze.getPath(current_cell, exchanger_cell)
@@ -414,6 +423,7 @@ class PuckController:
 
             # Goal Algorithm V2 1 Hour Count: 241.666
             # Goal Algorithm V3 1 Hour Count: 255.555
+            # Goal Algorithm V4 1 Hour Count: 263.888
             
             # State 1: Turn around to find walls
             if state == 1:
