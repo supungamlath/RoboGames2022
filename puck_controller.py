@@ -373,12 +373,12 @@ class PuckController:
                 self.turnRight()
                 updateMazeAndSaveImage(cell_info)
 
-    def setPathAndGoal(self, current_cell):
-        def getShortestPath(locations):
+    def setPath(self, current_cell):
+        def getShortestPath(target_locs, return_loc):
             min_length = 1000
             min_path = None
-            for location in locations:
-                cell = self.worldCoordToMazeCell(location)
+            for loc in target_locs:
+                cell = self.worldCoordToMazeCell(loc)
                 path = self.maze.getPath(current_cell, cell)
                 if len(path) < min_length:
                     min_length = len(path)
@@ -428,7 +428,7 @@ class PuckController:
             # State 2: Find and move to goal
             elif state == 2:
                 current_cell = self.getCurrentCell()
-                self.setPathAndGoal(current_cell)
+                self.setPath(current_cell)
 
                 next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):

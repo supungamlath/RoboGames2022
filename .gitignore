@@ -4,3 +4,4 @@ images/
 tests/
 controller.py
 _controller.pyd
+saved_maze.csv
