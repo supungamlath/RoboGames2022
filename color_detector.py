@@ -20,7 +20,8 @@ class ColorDetector:
             "#ffff00": "yellow",
         }
 
-    def hex_to_rgb(self, hex_value):
+    @staticmethod
+    def hex_to_rgb(hex_value):
         return tuple(
             map(
                 lambda s: int(s, 16),

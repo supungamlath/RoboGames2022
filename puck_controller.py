@@ -1,10 +1,18 @@
-# import sys
-# sys.path.append("E:\Program Files\Webots\lib\controller\python39")
+import sys
+sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
 
 from controller import Robot
 import json, math
 from maze import Maze
 from color_detector import ColorDetector
+
+### Robot Constants ###
+MOTOR_MAX_SPEED = 6.28
+SPEED = 5.0
+TURN_SPEED = 1.5
+CAPACITY = 3000
+SQUARE_LENGTH = 0.25
+CAMERA_TEST_ROW = 28
 
 ### Math Constants ###
 TWO_PI = math.pi * 2
@@ -12,38 +20,26 @@ PI = math.pi
 HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
 
-### Robot Constants ###
-MOTOR_MAX_SPEED = 6.28
-SPEED = 1.5
-TURN_SPEED = 1.5
-CAPACITY = 3000
-GYRO_CALIB = -4.26176112037897e-06
-ENCODER_CALIB = 0.020002628550546703
-CAMERA_TEST_ROW = 28
-# WHEEL_RADIUS = 0.0205
-# AXLE_LENGTH = 0.052
-
-### Maze Constants ###
-SQUARE_LENGTH = 0.25
-INITIAL_POSITION = [0.0843846, 0.62838]
-INITIAL_HEADING = HALF_PI
+### PID Constants ###
+PID_P = 2.5
+PID_D = 0.0
 
 
 class PuckController:
     def __init__(self):
         self.robot = Robot()
         self.timestep = int(self.robot.getBasicTimeStep())
-   
+
         # Receiver initialization
         self.receiver = self.robot.getDevice("receiver")
         self.receiver.enable(self.timestep)
-   
+
         # Camera initialization
         self.camera = self.robot.getDevice("camera")
         # self.camera.setFov(0.62)
         self.camera.enable(self.timestep)
         self.color_detector = ColorDetector(self.camera)
-    
+
         # Motor initialization
         self.left_motor = self.robot.getDevice("left wheel motor")
         self.right_motor = self.robot.getDevice("right wheel motor")
@@ -51,33 +47,24 @@ class PuckController:
         self.right_motor.setPosition(float("inf"))
         self.left_motor.setVelocity(0)
         self.right_motor.setVelocity(0)
-   
-        # Position sensor initialization
-        self.left_pos = self.robot.getDevice("left wheel sensor")
-        self.right_pos = self.robot.getDevice("right wheel sensor")
-        self.left_pos.enable(self.timestep)
-        self.right_pos.enable(self.timestep)
-        self.encoder_offsets = [0, 0]
-    
-        # Gyro initialization
-        self.gyro = self.robot.getDevice("gyro")
-        self.gyro.enable(self.timestep)
-   
+
         # Maze initialization
         self.maze = Maze(9, 8)
         self.maze.loadMaze()
         self.money_drops = []
-        self.exchanger_cell = None
-        self.goal = (1, 1)
+        self.exchanger_loc = None
+        self.path = None
         self.travelled_cells = set()
-        self.position = [INITIAL_POSITION[0], INITIAL_POSITION[1], INITIAL_HEADING]
-        
+        self.position = [0, 0, 0]
+
         # Game variables
+        self.time = 0
         self.rupees = 0
         self.dollars = 0
 
     ### Sensor Functions ###
-    def getOrientation(self, angle):
+    @staticmethod
+    def getOrientation(angle):
         if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
             return "N"
         elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
@@ -87,62 +74,33 @@ class PuckController:
         elif (PI + QUARTER_PI) <= angle < (TWO_PI - QUARTER_PI):
             return "W"
 
-    def updatePosition(self):
-        def getEncoderAngles():
-            return (
-                self.left_pos.getValue() - self.encoder_offsets[0],
-                self.right_pos.getValue() - self.encoder_offsets[1],
-            )
-
-        def resetEncoderDistances():
-            self.encoder_offsets[0] = self.left_pos.getValue()
-            self.encoder_offsets[1] = self.right_pos.getValue()
-
-        def getAngularVelocity():
-            return self.gyro.getValues()[2] * GYRO_CALIB
-
-        # Function to return displacements of left and right wheel given encoder angles
-        def getWheelDisplacements(left_angle, right_angle):
-            # Compute displacement of left wheel in meters
-            left_disp = left_angle * ENCODER_CALIB
-            # Compute displacement of right wheel in meters
-            right_disp = right_angle * ENCODER_CALIB
-            return left_disp, right_disp
-
-        resetEncoderDistances()
-        self.robot.step(self.timestep)
-        
-        self.position[2] += getAngularVelocity()
-        if self.position[2] < 0:
-            self.position[2] += TWO_PI
-        elif self.position[2] > TWO_PI:
-            self.position[2] = self.position[2] % TWO_PI
-
-        left_angle, right_angle = getEncoderAngles()
-        displacement = sum(getWheelDisplacements(left_angle, right_angle)) / 2
-        #   Update in position along X direction
-        self.position[0] -= displacement * math.sin(self.position[2])
-        #   Update in position along Y direction
-        self.position[1] -= displacement * math.cos(self.position[2])
-
     def getWallPresent(self):
         valid_colors = ["navy", "blue", "teal", "aqua"]
         if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_ROW):
-            # Wall is present
             return 0
-        # Wall is not present
         return 1
 
     def setTransmittedData(self):
+        self.robot.step(self.timestep)
+        was_data_set = False
         while self.receiver.getQueueLength() > 0:
+            was_data_set = True
             rec_data = json.loads(self.receiver.getData().decode("utf-8"))
-            # print(rec_data)
+            self.time = rec_data["time"]
             self.money_drops = rec_data["collectibles"]
             self.rupees = rec_data["rupees"]
             self.dollars = rec_data["dollars"]
-            self.exchanger_cell = tuple(rec_data["goal"])
-
+            self.exchanger_loc = tuple(rec_data["goal"])
+            self.position = rec_data["robot"]
+            in_angle = math.radians(rec_data["robotAngleDegrees"])
+            heading = (PI + HALF_PI) - in_angle
+            if heading < 0:
+                heading += TWO_PI
+            self.position.append(heading)
+            # print(self.position)
             self.receiver.nextPacket()
+
+        return was_data_set
 
     ### Motion Functions ###
     def stopMotors(self):
@@ -151,7 +109,7 @@ class PuckController:
         return True
 
     def turnRight(self):
-        print("Turning right")
+        # print("Turning right")
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
             expected_bearing = HALF_PI
@@ -162,7 +120,7 @@ class PuckController:
         else:
             expected_bearing = TWO_PI
 
-        def should_turn(init_orien, expected_bearing):
+        def shouldTurn(init_orien, expected_bearing):
             turned_angle = self.position[2]
             if init_orien == "W" and turned_angle < PI:
                 turned_angle += TWO_PI
@@ -170,15 +128,16 @@ class PuckController:
                 turned_angle -= TWO_PI
             return turned_angle < expected_bearing
 
-        while should_turn(orientation, expected_bearing):
+        self.stopMotors()
+        while shouldTurn(orientation, expected_bearing):
             self.left_motor.setVelocity(TURN_SPEED)
             self.right_motor.setVelocity(-TURN_SPEED)
-            self.updatePosition()
+            self.setTransmittedData()
 
         self.stopMotors()
 
     def turnLeft(self):
-        print("Turning left")
+        # print("Turning left")
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
             expected_bearing = PI + HALF_PI
@@ -189,7 +148,7 @@ class PuckController:
         else:
             expected_bearing = PI
 
-        def should_turn(init_orien, expected_bearing):
+        def shouldTurn(init_orien, expected_bearing):
             turned_angle = self.position[2]
             if init_orien == "E" and turned_angle > PI:
                 turned_angle -= TWO_PI
@@ -197,28 +156,34 @@ class PuckController:
                 turned_angle += TWO_PI
             return turned_angle > expected_bearing
 
-        while should_turn(orientation, expected_bearing):
+        self.stopMotors()
+        while shouldTurn(orientation, expected_bearing):
             self.left_motor.setVelocity(-TURN_SPEED)
             self.right_motor.setVelocity(TURN_SPEED)
-            self.updatePosition()
+            self.setTransmittedData()
 
         self.stopMotors()
 
     def goFoward(self):
-        print("Going Foward")
+        # print("Going foward")
+        start_time = self.time
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
-            target = self.position[1] - SQUARE_LENGTH
+            stop_target = self.position[1] - SQUARE_LENGTH
+            centerline = self.position[0]
         elif orientation == "E":
-            target = self.position[0] - SQUARE_LENGTH
+            stop_target = self.position[0] - SQUARE_LENGTH
+            centerline = self.position[1]
         elif orientation == "S":
-            target = self.position[1] + SQUARE_LENGTH
+            stop_target = self.position[1] + SQUARE_LENGTH
+            centerline = self.position[0]
         elif orientation == "W":
-            target = self.position[0] + SQUARE_LENGTH
-        target = round(target * 8) / 8
-        print("Target: ", target)
+            stop_target = self.position[0] + SQUARE_LENGTH
+            centerline = self.position[1]
+        stop_target = round(stop_target * 8) / 8
+        centerline = round(centerline * 8) / 8
 
-        def should_move(init_orien, target):
+        def shouldMove(init_orien, target):
             if init_orien == "N":
                 return self.position[1] > target
             elif init_orien == "S":
@@ -228,27 +193,53 @@ class PuckController:
             elif init_orien == "W":
                 return self.position[0] < target
 
-        while should_move(orientation, target):
-            self.left_motor.setVelocity(SPEED)
-            self.right_motor.setVelocity(SPEED)
-            self.updatePosition()
+        def getSpeedChange(init_orien, target):
+            if init_orien == "N":
+                error = self.position[0] - target
+            elif init_orien == "S":
+                error = target - self.position[0]
+            elif init_orien == "E":
+                error = target - self.position[1]
+            elif init_orien == "W":
+                error = self.position[1] - target
+            return error
 
-        self.stopMotors()
+        last_error = 0
+        while shouldMove(orientation, stop_target):
+            error = getSpeedChange(orientation, centerline)
+            change = error * PID_P + (error - last_error) * PID_D
+            last_error = error
+
+            self.left_motor.setVelocity(SPEED + change)
+            self.right_motor.setVelocity(SPEED - change)
+            self.setTransmittedData()
+            if self.time - start_time > 5000:
+                self.stopMotors()
+                return False
+
+        # self.stopMotors()
+        return True
 
     def goBackward(self):
-        print("Going Backwards")
+        # print("Going backward")
+        start_time = self.time
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
             target = self.position[1] + SQUARE_LENGTH
+            centerline = self.position[0]
         elif orientation == "E":
             target = self.position[0] + SQUARE_LENGTH
+            centerline = self.position[1]
         elif orientation == "S":
             target = self.position[1] - SQUARE_LENGTH
+            centerline = self.position[0]
         elif orientation == "W":
             target = self.position[0] - SQUARE_LENGTH
+            centerline = self.position[1]
         target = round(target * 8) / 8
+        centerline = round(centerline * 8) / 8
 
-        def should_move(init_orien, target):
+        def shouldMove(init_orien, target):
             if init_orien == "N":
                 return self.position[1] < target
             elif init_orien == "S":
@@ -258,63 +249,84 @@ class PuckController:
             elif init_orien == "W":
                 return self.position[0] > target
 
-        while should_move(orientation, target):
-            self.left_motor.setVelocity(-SPEED)
-            self.right_motor.setVelocity(-SPEED)
-            self.updatePosition()
+        def getSpeedChange(init_orien, target):
+            if init_orien == "N":
+                error = self.position[0] - target
+            elif init_orien == "S":
+                error = target - self.position[0]
+            elif init_orien == "E":
+                error = target - self.position[1]
+            elif init_orien == "W":
+                error = self.position[1] - target
+            return error * PID_P
 
-        self.stopMotors()
+        last_error = 0
+        while shouldMove(orientation, target):
+            error = getSpeedChange(orientation, centerline)
+            change = error * PID_P + (error - last_error) * PID_D
+            last_error = error
+
+            self.left_motor.setVelocity(-SPEED - change)
+            self.right_motor.setVelocity(-SPEED + change)
+            self.setTransmittedData()
+            if self.time - start_time > 5000:
+                self.stopMotors()
+                return False
+
+        # self.stopMotors()
+        return True
 
     def moveToNextCell(self, current_cell, next_cell):
-        print("Moving from", current_cell, "to", next_cell)
+        # print("Moving from", current_cell, "to", next_cell)
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
             if next_cell[0] < current_cell[0]:
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[0] > current_cell[0]:
-                self.goBackward()
+                return self.goBackward()
             elif next_cell[1] > current_cell[1]:
                 self.turnRight()
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[1] < current_cell[1]:
                 self.turnLeft()
-                self.goFoward()
+                return self.goFoward()
         elif front_dir == "E":
             if next_cell[1] > current_cell[1]:
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[1] < current_cell[1]:
-                self.goBackward()
+                return self.goBackward()
             elif next_cell[0] > current_cell[0]:
                 self.turnRight()
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[0] < current_cell[0]:
                 self.turnLeft()
-                self.goFoward()
+                return self.goFoward()
         elif front_dir == "S":
             if next_cell[0] > current_cell[0]:
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[0] < current_cell[0]:
-                self.goBackward()
+                return self.goBackward()
             elif next_cell[1] < current_cell[1]:
                 self.turnRight()
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[1] > current_cell[1]:
                 self.turnLeft()
-                self.goFoward()
+                return self.goFoward()
         elif front_dir == "W":
             if next_cell[1] < current_cell[1]:
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[1] > current_cell[1]:
-                self.goBackward()
+                return self.goBackward()
             elif next_cell[0] < current_cell[0]:
                 self.turnRight()
-                self.goFoward()
+                return self.goFoward()
             elif next_cell[0] > current_cell[0]:
                 self.turnLeft()
-                self.goFoward()
+                return self.goFoward()
 
     ### Maze Functions ###
-    def worldCoordToMazeCell(self, coord):
+    @staticmethod
+    def worldCoordToMazeCell(coord):
         # Note that the world and maze have switched x and y axes
         x = 4 - int(coord[0] // SQUARE_LENGTH)
         y = 5 + int(coord[1] // SQUARE_LENGTH)
@@ -326,6 +338,12 @@ class PuckController:
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent()
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
+            #     if not is_not_facing_wall:
+            #         print("Wall seen on", facing_dir)
+            #     else:
+            #         print("No wall seen on", facing_dir)
+            # else:
+            #     print("Wall known on", facing_dir)
 
         directions = ["N", "E", "S", "W"]
         facing_dir = self.getOrientation(self.position[2])
@@ -338,12 +356,12 @@ class PuckController:
         for i in range(4):
             if walls[k] == -1:
                 right_turns = i
-            k = (k+1) % 4
-        left_turns =  0
+            k = (k + 1) % 4
+        left_turns = 0
         for i in range(4):
             if walls[k] == -1:
                 left_turns = i
-            k = (k-1) % 4
+            k = (k - 1) % 4
 
         updateMazeAndSaveImage(cell_info)
         if right_turns > left_turns:
@@ -355,33 +373,38 @@ class PuckController:
                 self.turnRight()
                 updateMazeAndSaveImage(cell_info)
 
-    def setPathAndGoal(self, current_cell):
-        if self.rupees == CAPACITY:
-            self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
-            self.maze.solveMaze(current_cell, self.goal)
+    def setPath(self, current_cell):
+        def getShortestPath(target_locs, return_loc):
+            if return_loc:
+                target_locs.append(return_loc)
+                return_cell = self.worldCoordToMazeCell(return_loc)
+                path = self.maze.getPath(current_cell, return_cell)
+                for loc in target_locs:                
+                    cell = self.worldCoordToMazeCell(loc)
+                    if cell in path:
+                        return path
+            
+            min_length = 1000
+            min_path = None
+            for loc in target_locs:
+                cell = self.worldCoordToMazeCell(loc)
+                path = self.maze.getPath(current_cell, cell)
+                if len(path) < min_length:
+                    min_length = len(path)
+                    min_path = path
 
-        elif len(self.money_drops) > 0:
-            paths = []
-            drops = []
-            for drop in self.money_drops:
-                drop_cell = self.worldCoordToMazeCell(drop)
-                if current_cell == drop_cell:
-                    continue
-                self.maze.solveMaze(current_cell, drop_cell)
-                paths.append(self.maze.path)
-                drops.append(drop_cell)
+            return min_path
 
-            if len(paths) == 0:
-                self.goal = self.worldCoordToMazeCell(self.exchanger_cell)
-                self.maze.solveMaze(current_cell, self.goal)
-                return 
-
-            self.maze.path = min(paths, key=len)       
-            self.goal = drops[paths.index(self.maze.path)]
-
+        if len(self.money_drops) > 0 and self.rupees == 2000:
+            self.path = getShortestPath(self.money_drops, self.exchanger_loc)
+        elif len(self.money_drops) > 0 and self.rupees < 2000:
+            self.path = getShortestPath(self.money_drops, None)
+        elif self.rupees == CAPACITY:
+            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
+            self.path = self.maze.getPath(current_cell, exchanger_cell)
         else:
-            self.goal = (9,4)
-            self.maze.solveMaze(current_cell, self.goal)
+            self.path = self.maze.getPath(current_cell, (1,1))
+            print("Targetless (Learning Path Only)")
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
@@ -389,14 +412,24 @@ class PuckController:
     ### Main function ###
     def run(self):
         state = 1
+
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
+            self.setTransmittedData()
+            # if self.time: print("Efficiency", self.dollars/self.time*3600)
+            # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
+            # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
+            # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
 
+            # Goal Algorithm V2 1 Hour Count: 241.666
+            # Goal Algorithm V3 1 Hour Count: 255.555
+            # Goal Algorithm V4 1 Hour Count: 263.888
+            
             # State 1: Turn around to find walls
             if state == 1:
                 current_cell = self.getCurrentCell()
                 self.travelled_cells.add(current_cell)
-                
+
                 self.lookAround(current_cell)
                 self.maze.loadMaze()
 
@@ -404,13 +437,12 @@ class PuckController:
 
             # State 2: Find and move to goal
             elif state == 2:
-                self.setTransmittedData()
                 current_cell = self.getCurrentCell()
-                self.setPathAndGoal(current_cell)
-                # print(self.maze.path)
+                self.setPath(current_cell)
 
-                next_cell = self.maze.path[current_cell]
-                self.moveToNextCell(current_cell, next_cell)
+                next_cell = self.path[current_cell]
+                if not self.moveToNextCell(current_cell, next_cell):
+                    print("Error moving to cell", next_cell)
 
                 current_cell = self.getCurrentCell()
                 if current_cell not in self.travelled_cells:
