@@ -75,7 +75,7 @@ class PuckController:
             return "W"
 
     def getWallPresent(self):
-        valid_colors = ["navy", "blue", "teal", "aqua"]
+        valid_colors = ["green", "teal", "lime", "olive"]
         if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_ROW):
             return 0
         return 1
