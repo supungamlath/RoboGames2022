@@ -416,10 +416,11 @@ class PuckController:
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
-            # if self.time: print("Efficiency", self.dollars/self.time*3600)
+            if self.time: print("Efficiency", self.dollars/self.time*3600)
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
             # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
             # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
+            # Goal Algorithm V4 30 Minute Efficency: 0.23749558147755387
 
             # Goal Algorithm V2 1 Hour Count: 241.666
             # Goal Algorithm V3 1 Hour Count: 255.555
