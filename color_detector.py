@@ -48,5 +48,5 @@ class ColorDetector:
             green += self.camera.imageGetGreen(image, width, w, row)
             red += self.camera.imageGetRed(image, width, w, row)
         color_name = self.closestColour((red // width, green // width, blue // width))
-
+        print(color_name)
         return color_name in test_colors

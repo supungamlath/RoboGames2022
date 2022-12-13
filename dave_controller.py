@@ -10,9 +10,13 @@ from color_detector import ColorDetector
 MOTOR_MAX_SPEED = 6.28
 SPEED = 5.0
 TURN_SPEED = 1.5
-CAPACITY = 3000
-SQUARE_LENGTH = 0.25
-CAMERA_TEST_ROW = 28
+CAMERA_TEST_PIXEL_ROW = 28
+CAPACITY = 10000
+MOVEMENT_TIMEOUT = 5
+
+### Maze Constants ###
+GRID_SIZE = 44
+SQUARE_LENGTH = 0.1
 
 ### Math Constants ###
 TWO_PI = math.pi * 2
@@ -29,6 +33,7 @@ class PuckController:
     def __init__(self):
         self.robot = Robot()
         self.timestep = int(self.robot.getBasicTimeStep())
+        self.time = 0
 
         # Receiver initialization
         self.receiver = self.robot.getDevice("receiver")
@@ -40,6 +45,13 @@ class PuckController:
         self.camera.enable(self.timestep)
         self.color_detector = ColorDetector(self.camera)
 
+        # Proximity sensor initialization
+        self.distance_sensors = []
+        for i in range(8):
+            ds = self.robot.getDevice("ps" + str(i))
+            ds.enable(self.timestep)
+            self.distance_sensors.append(ds)
+
         # Motor initialization
         self.left_motor = self.robot.getDevice("left wheel motor")
         self.right_motor = self.robot.getDevice("right wheel motor")
@@ -49,16 +61,16 @@ class PuckController:
         self.right_motor.setVelocity(0)
 
         # Maze initialization
-        self.maze = Maze(9, 8)
+        self.maze = Maze(GRID_SIZE, GRID_SIZE)
         self.maze.loadMaze()
         self.money_drops = []
-        self.exchanger_loc = None
+        self.exchanger_locs = []
         self.path = None
         self.travelled_cells = set()
         self.position = [0, 0, 0]
 
         # Game variables
-        self.time = 0
+        self.game_time = 0
         self.rupees = 0
         self.dollars = 0
 
@@ -75,22 +87,27 @@ class PuckController:
             return "W"
 
     def getWallPresent(self):
+        # front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
+        # print(front_distance)
+        # if front_distance > 100:
+        #     return 0
         valid_colors = ["green", "teal", "lime", "olive"]
-        if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_ROW):
+        if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
             return 0
         return 1
 
     def setTransmittedData(self):
         self.robot.step(self.timestep)
+        self.time = self.robot.getTime()
         was_data_set = False
         while self.receiver.getQueueLength() > 0:
             was_data_set = True
             rec_data = json.loads(self.receiver.getData().decode("utf-8"))
-            self.time = rec_data["time"]
+            self.game_time = rec_data["time"]
             self.money_drops = rec_data["collectibles"]
             self.rupees = rec_data["rupees"]
             self.dollars = rec_data["dollars"]
-            self.exchanger_loc = tuple(rec_data["goal"])
+            self.exchanger_locs = rec_data["goals"]
             self.position = rec_data["robot"]
             in_angle = math.radians(rec_data["robotAngleDegrees"])
             heading = (PI + HALF_PI) - in_angle
@@ -180,8 +197,8 @@ class PuckController:
         elif orientation == "W":
             stop_target = self.position[0] + SQUARE_LENGTH
             centerline = self.position[1]
-        stop_target = round(stop_target * 8) / 8
-        centerline = round(centerline * 8) / 8
+        stop_target = round(stop_target / SQUARE_LENGTH) * SQUARE_LENGTH
+        centerline = round(centerline / SQUARE_LENGTH) * SQUARE_LENGTH
 
         def shouldMove(init_orien, target):
             if init_orien == "N":
@@ -213,7 +230,7 @@ class PuckController:
             self.left_motor.setVelocity(SPEED + change)
             self.right_motor.setVelocity(SPEED - change)
             self.setTransmittedData()
-            if self.time - start_time > 5000:
+            if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
                 return False
 
@@ -269,7 +286,7 @@ class PuckController:
             self.left_motor.setVelocity(-SPEED - change)
             self.right_motor.setVelocity(-SPEED + change)
             self.setTransmittedData()
-            if self.time - start_time > 5000:
+            if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
                 return False
 
@@ -328,8 +345,8 @@ class PuckController:
     @staticmethod
     def worldCoordToMazeCell(coord):
         # Note that the world and maze have switched x and y axes
-        x = 4 - int(coord[0] // SQUARE_LENGTH)
-        y = 5 + int(coord[1] // SQUARE_LENGTH)
+        x = (GRID_SIZE // 2) - int(coord[0] // SQUARE_LENGTH)
+        y = (GRID_SIZE // 2) + int(coord[1] // SQUARE_LENGTH)
         return (y, x)
 
     def lookAround(self, maze_coord):
@@ -338,12 +355,12 @@ class PuckController:
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent()
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-            #     if not is_not_facing_wall:
-            #         print("Wall seen on", facing_dir)
-            #     else:
-            #         print("No wall seen on", facing_dir)
-            # else:
-            #     print("Wall known on", facing_dir)
+                if not is_not_facing_wall:
+                    print(maze_coord, "Wall seen on", facing_dir)
+                else:
+                    print(maze_coord, "No wall seen on", facing_dir)
+            else:
+                print(maze_coord, "Wall known on", facing_dir)
 
         directions = ["N", "E", "S", "W"]
         facing_dir = self.getOrientation(self.position[2])
@@ -396,11 +413,11 @@ class PuckController:
             return min_path
 
         if len(self.money_drops) > 0 and self.rupees == 2000:
-            self.path = getShortestPath(self.money_drops, self.exchanger_loc)
+            self.path = getShortestPath(self.money_drops, self.exchanger_locs[0])
         elif len(self.money_drops) > 0 and self.rupees < 2000:
             self.path = getShortestPath(self.money_drops, None)
         elif self.rupees == CAPACITY:
-            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_loc)
+            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_locs[0])
             self.path = self.maze.getPath(current_cell, exchanger_cell)
         else:
             self.path = self.maze.getPath(current_cell, (1,1))
@@ -416,7 +433,7 @@ class PuckController:
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
-            if self.time: print("Efficiency", self.dollars/self.time*3600)
+            print(self.time)
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
             # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
             # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
