@@ -87,13 +87,13 @@ class PuckController:
             return "W"
 
     def getWallPresent(self):
-        # front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
-        # print(front_distance)
-        # if front_distance > 100:
-        #     return 0
-        valid_colors = ["green", "teal", "lime", "olive"]
-        if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
+        front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
+        print(front_distance)
+        if front_distance > 100:
             return 0
+        # valid_colors = ["green", "teal", "lime", "olive"]
+        # if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
+        #     return 0
         return 1
 
     def setTransmittedData(self):
