@@ -12,7 +12,7 @@ SPEED = 5.0
 TURN_SPEED = 1.5
 CAMERA_TEST_PIXEL_ROW = 28
 CAPACITY = 10000
-MOVEMENT_TIMEOUT = 5
+MOVEMENT_TIMEOUT = 3
 
 ### Maze Constants ###
 GRID_SIZE = 44
@@ -87,13 +87,13 @@ class PuckController:
             return "W"
 
     def getWallPresent(self):
-        front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
-        print(front_distance)
-        if front_distance > 100:
-            return 0
-        # valid_colors = ["green", "teal", "lime", "olive"]
-        # if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
+        # front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
+        # print(front_distance)
+        # if front_distance > 120:
         #     return 0
+        valid_colors = ["green", "teal", "lime", "olive"]
+        if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
+            return 0
         return 1
 
     def setTransmittedData(self):
@@ -109,12 +109,8 @@ class PuckController:
             self.dollars = rec_data["dollars"]
             self.exchanger_locs = rec_data["goals"]
             self.position = rec_data["robot"]
-            in_angle = math.radians(rec_data["robotAngleDegrees"])
-            heading = (PI + HALF_PI) - in_angle
-            if heading < 0:
-                heading += TWO_PI
+            heading = math.radians(rec_data["robotAngleDegrees"])
             self.position.append(heading)
-            # print(self.position)
             self.receiver.nextPacket()
 
         return was_data_set
@@ -181,24 +177,23 @@ class PuckController:
 
         self.stopMotors()
 
-    def goFoward(self):
+    def goFoward(self, target_cell):
         # print("Going foward")
+        # HALF_LENGTH = SQUARE_LENGTH / 2
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
-        if orientation == "N":
-            stop_target = self.position[1] - SQUARE_LENGTH
-            centerline = self.position[0]
-        elif orientation == "E":
-            stop_target = self.position[0] - SQUARE_LENGTH
-            centerline = self.position[1]
-        elif orientation == "S":
-            stop_target = self.position[1] + SQUARE_LENGTH
-            centerline = self.position[0]
-        elif orientation == "W":
-            stop_target = self.position[0] + SQUARE_LENGTH
-            centerline = self.position[1]
-        stop_target = round(stop_target / SQUARE_LENGTH) * SQUARE_LENGTH
-        centerline = round(centerline / SQUARE_LENGTH) * SQUARE_LENGTH
+        ideal_position = self.mazeCellToWorldCoords(target_cell)
+        print(ideal_position)
+
+        if orientation == "N" or orientation == "S":
+            stop_target = ideal_position[1]
+            centerline = ideal_position[0]
+        elif orientation == "E" or orientation == "W":
+            stop_target = ideal_position[0]
+            centerline = ideal_position[1]
+
+        # stop_target = round(stop_target / HALF_LENGTH) * HALF_LENGTH
+        # centerline = round(centerline / HALF_LENGTH) * HALF_LENGTH
 
         def shouldMove(init_orien, target):
             if init_orien == "N":
@@ -237,24 +232,25 @@ class PuckController:
         # self.stopMotors()
         return True
 
-    def goBackward(self):
+    def goBackward(self, target_cell):
         # print("Going backward")
+        HALF_LENGTH = SQUARE_LENGTH / 2
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
         if orientation == "N":
-            target = self.position[1] + SQUARE_LENGTH
+            stop_target = self.position[1] + SQUARE_LENGTH
             centerline = self.position[0]
         elif orientation == "E":
-            target = self.position[0] + SQUARE_LENGTH
+            stop_target = self.position[0] + SQUARE_LENGTH
             centerline = self.position[1]
         elif orientation == "S":
-            target = self.position[1] - SQUARE_LENGTH
+            stop_target = self.position[1] - SQUARE_LENGTH
             centerline = self.position[0]
         elif orientation == "W":
-            target = self.position[0] - SQUARE_LENGTH
+            stop_target = self.position[0] - SQUARE_LENGTH
             centerline = self.position[1]
-        target = round(target * 8) / 8
-        centerline = round(centerline * 8) / 8
+        stop_target = round(stop_target / HALF_LENGTH) * HALF_LENGTH
+        centerline = round(centerline / HALF_LENGTH) * HALF_LENGTH
 
         def shouldMove(init_orien, target):
             if init_orien == "N":
@@ -278,7 +274,7 @@ class PuckController:
             return error * PID_P
 
         last_error = 0
-        while shouldMove(orientation, target):
+        while shouldMove(orientation, stop_target):
             error = getSpeedChange(orientation, centerline)
             change = error * PID_P + (error - last_error) * PID_D
             last_error = error
@@ -298,48 +294,48 @@ class PuckController:
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
             if next_cell[0] < current_cell[0]:
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[0] > current_cell[0]:
-                return self.goBackward()
+                return self.goBackward(next_cell)
             elif next_cell[1] > current_cell[1]:
                 self.turnRight()
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[1] < current_cell[1]:
                 self.turnLeft()
-                return self.goFoward()
+                return self.goFoward(next_cell)
         elif front_dir == "E":
             if next_cell[1] > current_cell[1]:
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[1] < current_cell[1]:
-                return self.goBackward()
+                return self.goBackward(next_cell)
             elif next_cell[0] > current_cell[0]:
                 self.turnRight()
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[0] < current_cell[0]:
                 self.turnLeft()
-                return self.goFoward()
+                return self.goFoward(next_cell)
         elif front_dir == "S":
             if next_cell[0] > current_cell[0]:
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[0] < current_cell[0]:
-                return self.goBackward()
+                return self.goBackward(next_cell)
             elif next_cell[1] < current_cell[1]:
                 self.turnRight()
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[1] > current_cell[1]:
                 self.turnLeft()
-                return self.goFoward()
+                return self.goFoward(next_cell)
         elif front_dir == "W":
             if next_cell[1] < current_cell[1]:
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[1] > current_cell[1]:
-                return self.goBackward()
+                return self.goBackward(next_cell)
             elif next_cell[0] < current_cell[0]:
                 self.turnRight()
-                return self.goFoward()
+                return self.goFoward(next_cell)
             elif next_cell[0] > current_cell[0]:
                 self.turnLeft()
-                return self.goFoward()
+                return self.goFoward(next_cell)
 
     ### Maze Functions ###
     @staticmethod
@@ -349,11 +345,19 @@ class PuckController:
         y = (GRID_SIZE // 2) + int(coord[1] // SQUARE_LENGTH)
         return (y, x)
 
+    @staticmethod
+    def mazeCellToWorldCoords(maze_cell):
+        # Note that the world and maze have switched x and y axes
+        x = ((GRID_SIZE // 2 - maze_cell[1]) * SQUARE_LENGTH) + SQUARE_LENGTH / 2
+        y = ((GRID_SIZE // 2 - maze_cell[0]) * SQUARE_LENGTH) + SQUARE_LENGTH / 2
+        return (x, y)
+
     def lookAround(self, maze_coord):
         def updateMazeAndSaveImage(cell_info):
             facing_dir = self.getOrientation(self.position[2])
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent()
+                self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
                 if not is_not_facing_wall:
                     print(maze_coord, "Wall seen on", facing_dir)
@@ -433,7 +437,6 @@ class PuckController:
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.setTransmittedData()
-            print(self.time)
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
             # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
             # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
@@ -461,6 +464,8 @@ class PuckController:
                 next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):
                     print("Error moving to cell", next_cell)
+                    state = 1
+                    continue                    
 
                 current_cell = self.getCurrentCell()
                 if current_cell not in self.travelled_cells:
