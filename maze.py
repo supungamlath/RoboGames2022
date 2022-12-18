@@ -80,43 +80,45 @@ class Maze:
                     "N": int(row["N"]),
                     "S": int(row["S"])}
 
+    @staticmethod
+    def getOppositeDir(direction):
+        if direction == "N":
+            return "S"
+        elif direction == "E":
+            return "W"
+        elif direction == "S":
+            return "N"
+        elif direction == "W":
+            return "E"
 
-    def addWallToMaze(self, cell, direction, wall_present):
-        def getOppositeDir(direction):
-            if direction == "N":
-                return "S"
-            elif direction == "E":
-                return "W"
-            elif direction == "S":
-                return "N"
-            elif direction == "W":
-                return "E"
+    @staticmethod
+    def getAdjacentCell(cell, direction):
+        if direction == "N":
+            return (cell[0] - 1, cell[1])
+        elif direction == "E":
+            return (cell[0], cell[1] + 1)
+        elif direction == "S":
+            return (cell[0] + 1, cell[1])
+        elif direction == "W":
+            return (cell[0], cell[1] - 1)
 
-        def getAdjacentCell(cell, direction):
-            if direction == "N":
-                return (cell[0] - 1, cell[1])
-            elif direction == "E":
-                return (cell[0], cell[1] + 1)
-            elif direction == "S":
-                return (cell[0] + 1, cell[1])
-            elif direction == "W":
-                return (cell[0], cell[1] - 1)
-
+    def addDataToMaze(self, cell, direction, wall_present):
         tempfile = NamedTemporaryFile("w+t", newline="", delete=False)
         with open(self.filename, "r", newline="") as csvfile, tempfile:
             reader = csv.DictReader(csvfile, fieldnames=self.fields)
             writer = csv.DictWriter(tempfile, fieldnames=self.fields)
 
-            adj_cell = getAdjacentCell(cell, direction)
+            adj_cell = self.getAdjacentCell(cell, direction)
             for row in reader:
                 if row["  cell  "] == str(cell):
                     row[direction] = wall_present
                 elif row["  cell  "] == str(adj_cell):
-                    row[getOppositeDir(direction)] = wall_present
+                    row[self.getOppositeDir(direction)] = wall_present
 
                 writer.writerow(row)
 
         shutil.move(tempfile.name, self.filename)
+        self.maze_map[cell][direction] = wall_present
 
     def solveMaze(self, start, goal):
         self.path = self.BFS(start, goal)

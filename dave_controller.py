@@ -5,6 +5,7 @@ from controller import Robot
 import json, math, logging
 from maze import Maze
 from color_detector import ColorDetector
+from slam import SLAM
 
 logging.basicConfig(filename="log.txt", level=logging.DEBUG, format="%(asctime)s : %(levelname)s : %(message)s")
 
@@ -12,7 +13,6 @@ logging.basicConfig(filename="log.txt", level=logging.DEBUG, format="%(asctime)s
 MOTOR_MAX_SPEED = 6.28
 SPEED = 5.0
 TURN_SPEED = 1.5
-CAMERA_TEST_PIXEL_ROW = 28
 CAPACITY = 10000
 MOVEMENT_TIMEOUT = 2.5
 
@@ -71,6 +71,7 @@ class PuckController:
         self.travelled_cells = set()
 
         # Localization variables
+        self.slam = SLAM(self.maze, self.camera, self.distance_sensors)
         self.robot_x_axis = 0 # x axis is the robot's vertical axis in Webots
         self.robot_y_axis = 1 # y axis is the robot's horizontal axis in Webots
         self.position = [0, 0, 0]
@@ -81,31 +82,7 @@ class PuckController:
         self.rupees = 0
         self.dollars = 0
 
-    ### Sensor Functions ###
-
-
-    def getWallPresent(self):
-        left_distance = self.distance_sensors[5].getValue() 
-        right_distance = self.distance_sensors[2].getValue()
-        front_left_distance = self.distance_sensors[7].getValue() 
-        front_right_distance = self.distance_sensors[0].getValue()
-        logging.debug("Left distance - " + str(left_distance))
-        logging.debug("Right distance - " + str(right_distance))
-        logging.debug("Front left distance - " + str(front_left_distance))
-        logging.debug("Front right distance - " + str(front_right_distance))
-        
-        # if front_distance > 120:
-        #     return 0
-        # valid_colors = ["green", "teal", "lime", "olive"]
-        # if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
-        #     return 0
-        # return 1
-        
-        user_input = input("Enter 0 if wall is present : ")
-        if int(user_input) == 0:
-            return 0
-        return 1
-
+    # Function to update robot attributes from received data
     def updateRobotData(self):
         self.robot.step(self.timestep)
         self.time = self.robot.getTime()
@@ -145,31 +122,27 @@ class PuckController:
         return was_data_set
 
     ### Motion Functions ###
-    def stopMotors(self):
-        self.left_motor.setVelocity(0)
-        self.right_motor.setVelocity(0)
-        return True
-
     def turn(self, direction):
         logging.info("Turning " + direction)
+        start_orientation = self.orientation
         if direction == "right":
             turn_dir = 1
-            if self.orientation == "N":
+            if start_orientation == "N":
                 expected_bearing = HALF_PI
-            elif self.orientation == "E":
+            elif start_orientation == "E":
                 expected_bearing = PI
-            elif self.orientation == "S":
+            elif start_orientation == "S":
                 expected_bearing = PI + HALF_PI
             else:
                 expected_bearing = TWO_PI
 
         elif direction == "left":
             turn_dir = -1
-            if self.orientation == "N":
+            if start_orientation == "N":
                 expected_bearing = PI + HALF_PI
-            elif self.orientation == "E":
+            elif start_orientation == "E":
                 expected_bearing = 0
-            elif self.orientation == "S":
+            elif start_orientation == "S":
                 expected_bearing = HALF_PI
             else:
                 expected_bearing = PI         
@@ -205,7 +178,7 @@ class PuckController:
                 return shouldTurnCCW(init_orien, expected_bearing)
 
         self.stopMotors()
-        while shouldTurn(turn_dir, self.orientation, expected_bearing):
+        while shouldTurn(turn_dir, start_orientation, expected_bearing):
             self.left_motor.setVelocity(TURN_SPEED * turn_dir)
             self.right_motor.setVelocity(-TURN_SPEED * turn_dir)
             self.updateRobotData()
@@ -214,6 +187,8 @@ class PuckController:
     def goFoward(self, target_cell):
         logging.info("Going foward")
         start_time = self.time
+        start_cell = self.getCurrentCell()
+        start_orientation = self.orientation
         logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
         logging.debug("Target position - " + str(ideal_position))
@@ -243,8 +218,8 @@ class PuckController:
             return error
 
         last_error = 0
-        while shouldMove(self.orientation, stop_target):
-            error = getSpeedChange(self.orientation, centerline)
+        while shouldMove(start_orientation, stop_target):
+            error = getSpeedChange(start_orientation, centerline)
             # change = error * PID_P + (error - last_error) * PID_D
             change = error * PID_P
             last_error = error
@@ -254,6 +229,7 @@ class PuckController:
             self.updateRobotData()
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
+                self.slam.setPathBlocked(start_cell, start_orientation)
                 return False
 
         # self.stopMotors()
@@ -262,6 +238,8 @@ class PuckController:
     def goBackward(self, target_cell):
         logging.info("Going backward")
         start_time = self.time
+        start_cell = self.getCurrentCell()
+        start_orientation = self.orientation
         logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
         logging.debug("Target position - " + str(ideal_position))
@@ -291,8 +269,8 @@ class PuckController:
             return error * PID_P
 
         last_error = 0
-        while shouldMove(self.orientation, stop_target):
-            error = getSpeedChange(self.orientation, centerline)
+        while shouldMove(start_orientation, stop_target):
+            error = getSpeedChange(start_orientation, centerline)
             # change = error * PID_P + (error - last_error) * PID_D
             change = error * PID_P 
             last_error = error
@@ -302,9 +280,15 @@ class PuckController:
             self.updateRobotData()
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
+                self.slam.setPathBlocked(start_cell, self.maze.getOppositeDir(start_orientation))
                 return False
 
         # self.stopMotors()
+        return True
+
+    def stopMotors(self):
+        self.left_motor.setVelocity(0)
+        self.right_motor.setVelocity(0)
         return True
 
     def moveToNextCell(self, current_cell, next_cell):
@@ -381,20 +365,7 @@ class PuckController:
             y = ((GRID_SIZE // 2 - maze_cell[0]) * SQUARE_LENGTH) + SQUARE_LENGTH
         return (y, x)
 
-    def lookAround(self, maze_coord):
-        def updateMazeAndSaveImage(cell_info):
-            facing_dir = self.orientation
-            if cell_info[facing_dir] == -1:
-                is_not_facing_wall = self.getWallPresent()
-                self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
-                self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-                if not is_not_facing_wall:
-                    logging.info(str(maze_coord) + " - Wall seen on " + facing_dir)
-                else:
-                    logging.info(str(maze_coord) + " - No wall seen on " + facing_dir)
-            else:
-                logging.info(str(maze_coord) + " - Wall known on " + facing_dir)
-
+    def turnAndMap(self, maze_coord):
         directions = ["N", "E", "S", "W"]
         cell_info = self.maze.maze_map[maze_coord]
         walls = [cell_info[d] for d in directions]
@@ -411,15 +382,15 @@ class PuckController:
                 left_turns = i
             k = (k - 1) % 4
 
-        updateMazeAndSaveImage(cell_info)
+        self.slam.mapWalls(maze_coord, self.orientation)
         if right_turns > left_turns:
             for i in range(left_turns):
                 self.turn("left")
-                updateMazeAndSaveImage(cell_info)
+                self.slam.mapWalls(maze_coord, self.orientation)
         else:
             for i in range(right_turns):
                 self.turn("right")
-                updateMazeAndSaveImage(cell_info)
+                self.slam.mapWalls(maze_coord, self.orientation)
 
     def setPath(self, current_cell):
         def getShortestPath(target_locs, return_loc):
@@ -478,8 +449,7 @@ class PuckController:
                 current_cell = self.getCurrentCell()
                 self.travelled_cells.add(current_cell)
 
-                self.lookAround(current_cell)
-                self.maze.loadMaze()
+                self.turnAndMap(current_cell)
 
                 state = 2
 
@@ -490,7 +460,7 @@ class PuckController:
 
                 next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):
-                    logging.error("Error moving to cell " + str(next_cell))
+                    logging.debug("Error moving to cell " + str(next_cell) + " Recorded as blocked")
                     state = 1
                     continue                    
 
