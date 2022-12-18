@@ -138,8 +138,8 @@ class PuckController:
 
     def turn(self, direction):
         orientation = self.getOrientation(self.position[2])
+        print("Turning", direction)
         if direction == "right":
-            # print("Turning right")
             turn_dir = 1
             if orientation == "N":
                 expected_bearing = HALF_PI
@@ -151,7 +151,6 @@ class PuckController:
                 expected_bearing = TWO_PI
 
         elif direction == "left":
-            # print("Turning left")
             turn_dir = -1
             if orientation == "N":
                 expected_bearing = PI + HALF_PI
@@ -162,6 +161,7 @@ class PuckController:
             else:
                 expected_bearing = PI         
 
+        # TODO - Fix specified angle rotation 
         else:
             expected_bearing = direction
             if expected_bearing < self.position[2]:
@@ -169,7 +169,7 @@ class PuckController:
             else:
                 turn_dir = 1
 
-        def shouldTurn(init_orien, expected_bearing):
+        def shouldTurnCW(init_orien, expected_bearing):
             turned_angle = self.position[2]
             if init_orien == "W" and turned_angle < PI:
                 turned_angle += TWO_PI
@@ -177,8 +177,22 @@ class PuckController:
                 turned_angle -= TWO_PI
             return turned_angle < expected_bearing
 
+        def shouldTurnCCW(init_orien, expected_bearing):
+            turned_angle = self.position[2]
+            if init_orien == "E" and turned_angle > PI:
+                turned_angle -= TWO_PI
+            elif init_orien == "N" and turned_angle < PI:
+                turned_angle += TWO_PI
+            return turned_angle > expected_bearing
+
+        def shouldTurn(turn_dir, init_orien, expected_bearing):
+            if turn_dir == 1:
+                return shouldTurnCW(init_orien, expected_bearing)
+            else:
+                return shouldTurnCCW(init_orien, expected_bearing)
+
         self.stopMotors()
-        while shouldTurn(orientation, expected_bearing):
+        while shouldTurn(turn_dir, orientation, expected_bearing):
             self.left_motor.setVelocity(TURN_SPEED * turn_dir)
             self.right_motor.setVelocity(-TURN_SPEED * turn_dir)
             self.setTransmittedData()
@@ -465,6 +479,7 @@ class PuckController:
             elif state == 2:
                 current_cell = self.getCurrentCell()
                 self.setPath(current_cell)
+                print(current_cell)
 
                 next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):
