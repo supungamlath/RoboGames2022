@@ -217,9 +217,9 @@ class PuckController:
 
         def shouldMove(init_orien, target):
             if init_orien == "N":
-                return self.position[0] > target
-            elif init_orien == "S":
                 return self.position[0] < target
+            elif init_orien == "S":
+                return self.position[0] > target
             elif init_orien == "E":
                 return self.position[1] > target
             elif init_orien == "W":
@@ -266,7 +266,7 @@ class PuckController:
 
         def shouldMove(init_orien, target):
             if init_orien == "N":
-                return self.position[0] < target
+                return self.position[0] > target
             elif init_orien == "S":
                 return self.position[0] < target
             elif init_orien == "E":
@@ -303,7 +303,7 @@ class PuckController:
         return True
 
     def moveToNextCell(self, current_cell, next_cell):
-        logging.info("Moving from" + str(current_cell) + "to" + str(next_cell))
+        logging.info("Moving from " + str(current_cell) + " to " + str(next_cell))
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
             if next_cell[0] < current_cell[0]:
