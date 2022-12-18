@@ -14,7 +14,7 @@ SPEED = 5.0
 TURN_SPEED = 1.5
 CAMERA_TEST_PIXEL_ROW = 28
 CAPACITY = 10000
-MOVEMENT_TIMEOUT = 3
+MOVEMENT_TIMEOUT = 2.5
 
 ### Maze Constants ###
 GRID_SIZE = 44
@@ -74,6 +74,7 @@ class PuckController:
         self.robot_x_axis = 0 # x axis is the robot's vertical axis in Webots
         self.robot_y_axis = 1 # y axis is the robot's horizontal axis in Webots
         self.position = [0, 0, 0]
+        self.orientation = None
 
         # Game variables
         self.game_time = 0
@@ -81,27 +82,15 @@ class PuckController:
         self.dollars = 0
 
     ### Sensor Functions ###
-    def getOrientation(self, angle):
-        if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
-            self.robot_x_axis = 0
-            self.robot_y_axis = 1
-            return "N"
-        elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
-            self.robot_x_axis = 1
-            self.robot_y_axis = 0
-            return "E"
-        elif (HALF_PI + QUARTER_PI) <= angle < (PI + QUARTER_PI):
-            self.robot_x_axis = 0
-            self.robot_y_axis = 1
-            return "S"
-        elif (PI + QUARTER_PI) <= angle < (TWO_PI - QUARTER_PI):
-            self.robot_x_axis = 1
-            self.robot_y_axis = 0
-            return "W"
+
 
     def getWallPresent(self):
+        left_distance = self.distance_sensors[5].getValue() 
+        right_distance = self.distance_sensors[2].getValue()
         front_left_distance = self.distance_sensors[7].getValue() 
         front_right_distance = self.distance_sensors[0].getValue()
+        logging.debug("Left distance - " + str(left_distance))
+        logging.debug("Right distance - " + str(right_distance))
         logging.debug("Front left distance - " + str(front_left_distance))
         logging.debug("Front right distance - " + str(front_right_distance))
         
@@ -117,10 +106,21 @@ class PuckController:
             return 0
         return 1
 
-    def setTransmittedData(self):
+    def updateRobotData(self):
         self.robot.step(self.timestep)
         self.time = self.robot.getTime()
         was_data_set = False
+        
+        def getOrientation(angle):
+            if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
+                return "N"
+            elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
+                return "E"
+            elif (HALF_PI + QUARTER_PI) <= angle < (PI + QUARTER_PI):
+                return "S"
+            elif (PI + QUARTER_PI) <= angle < (TWO_PI - QUARTER_PI):
+                return "W"
+
         while self.receiver.getQueueLength() > 0:
             was_data_set = True
             rec_data = json.loads(self.receiver.getData().decode("utf-8"))
@@ -132,6 +132,14 @@ class PuckController:
             self.position = rec_data["robot"]
             heading = math.radians(360 - rec_data["robotAngleDegrees"])
             self.position.append(heading)
+            self.orientation = getOrientation(heading)
+            if self.orientation == "N" or self.orientation == "S":
+                self.robot_x_axis = 0
+                self.robot_y_axis = 1
+            else:
+                self.robot_x_axis = 1
+                self.robot_y_axis = 0
+
             self.receiver.nextPacket()
 
         return was_data_set
@@ -143,26 +151,25 @@ class PuckController:
         return True
 
     def turn(self, direction):
-        orientation = self.getOrientation(self.position[2])
         logging.info("Turning " + direction)
         if direction == "right":
             turn_dir = 1
-            if orientation == "N":
+            if self.orientation == "N":
                 expected_bearing = HALF_PI
-            elif orientation == "E":
+            elif self.orientation == "E":
                 expected_bearing = PI
-            elif orientation == "S":
+            elif self.orientation == "S":
                 expected_bearing = PI + HALF_PI
             else:
                 expected_bearing = TWO_PI
 
         elif direction == "left":
             turn_dir = -1
-            if orientation == "N":
+            if self.orientation == "N":
                 expected_bearing = PI + HALF_PI
-            elif orientation == "E":
+            elif self.orientation == "E":
                 expected_bearing = 0
-            elif orientation == "S":
+            elif self.orientation == "S":
                 expected_bearing = HALF_PI
             else:
                 expected_bearing = PI         
@@ -198,16 +205,15 @@ class PuckController:
                 return shouldTurnCCW(init_orien, expected_bearing)
 
         self.stopMotors()
-        while shouldTurn(turn_dir, orientation, expected_bearing):
+        while shouldTurn(turn_dir, self.orientation, expected_bearing):
             self.left_motor.setVelocity(TURN_SPEED * turn_dir)
             self.right_motor.setVelocity(-TURN_SPEED * turn_dir)
-            self.setTransmittedData()
+            self.updateRobotData()
         self.stopMotors()
 
     def goFoward(self, target_cell):
         logging.info("Going foward")
         start_time = self.time
-        orientation = self.getOrientation(self.position[2])
         logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
         logging.debug("Target position - " + str(ideal_position))
@@ -237,15 +243,15 @@ class PuckController:
             return error
 
         last_error = 0
-        while shouldMove(orientation, stop_target):
-            error = getSpeedChange(orientation, centerline)
+        while shouldMove(self.orientation, stop_target):
+            error = getSpeedChange(self.orientation, centerline)
             # change = error * PID_P + (error - last_error) * PID_D
             change = error * PID_P
             last_error = error
 
             self.left_motor.setVelocity(SPEED + change)
             self.right_motor.setVelocity(SPEED - change)
-            self.setTransmittedData()
+            self.updateRobotData()
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
                 return False
@@ -256,7 +262,6 @@ class PuckController:
     def goBackward(self, target_cell):
         logging.info("Going backward")
         start_time = self.time
-        orientation = self.getOrientation(self.position[2])
         logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
         logging.debug("Target position - " + str(ideal_position))
@@ -286,15 +291,15 @@ class PuckController:
             return error * PID_P
 
         last_error = 0
-        while shouldMove(orientation, stop_target):
-            error = getSpeedChange(orientation, centerline)
+        while shouldMove(self.orientation, stop_target):
+            error = getSpeedChange(self.orientation, centerline)
             # change = error * PID_P + (error - last_error) * PID_D
             change = error * PID_P 
             last_error = error
 
             self.left_motor.setVelocity(-SPEED - change)
             self.right_motor.setVelocity(-SPEED + change)
-            self.setTransmittedData()
+            self.updateRobotData()
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 self.stopMotors()
                 return False
@@ -304,8 +309,7 @@ class PuckController:
 
     def moveToNextCell(self, current_cell, next_cell):
         logging.info("Moving from " + str(current_cell) + " to " + str(next_cell))
-        front_dir = self.getOrientation(self.position[2])
-        if front_dir == "N":
+        if self.orientation == "N":
             if next_cell[0] < current_cell[0]:
                 return self.goFoward(next_cell)
             elif next_cell[0] > current_cell[0]:
@@ -316,7 +320,7 @@ class PuckController:
             elif next_cell[1] < current_cell[1]:
                 self.turn("left")
                 return self.goFoward(next_cell)
-        elif front_dir == "E":
+        elif self.orientation == "E":
             if next_cell[1] > current_cell[1]:
                 return self.goFoward(next_cell)
             elif next_cell[1] < current_cell[1]:
@@ -327,7 +331,7 @@ class PuckController:
             elif next_cell[0] < current_cell[0]:
                 self.turn("left")
                 return self.goFoward(next_cell)
-        elif front_dir == "S":
+        elif self.orientation == "S":
             if next_cell[0] > current_cell[0]:
                 return self.goFoward(next_cell)
             elif next_cell[0] < current_cell[0]:
@@ -338,7 +342,7 @@ class PuckController:
             elif next_cell[1] > current_cell[1]:
                 self.turn("left")
                 return self.goFoward(next_cell)
-        elif front_dir == "W":
+        elif self.orientation == "W":
             if next_cell[1] < current_cell[1]:
                 return self.goFoward(next_cell)
             elif next_cell[1] > current_cell[1]:
@@ -379,7 +383,7 @@ class PuckController:
 
     def lookAround(self, maze_coord):
         def updateMazeAndSaveImage(cell_info):
-            facing_dir = self.getOrientation(self.position[2])
+            facing_dir = self.orientation
             if cell_info[facing_dir] == -1:
                 is_not_facing_wall = self.getWallPresent()
                 self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
@@ -392,10 +396,9 @@ class PuckController:
                 logging.info(str(maze_coord) + " - Wall known on " + facing_dir)
 
         directions = ["N", "E", "S", "W"]
-        facing_dir = self.getOrientation(self.position[2])
         cell_info = self.maze.maze_map[maze_coord]
         walls = [cell_info[d] for d in directions]
-        k = directions.index(facing_dir)
+        k = directions.index(self.orientation)
 
         right_turns = 0
         for i in range(4):
@@ -460,7 +463,7 @@ class PuckController:
 
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
-            self.setTransmittedData()
+            self.updateRobotData()
             # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
             # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
             # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
