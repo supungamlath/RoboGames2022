@@ -2,9 +2,11 @@ import sys
 sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
 
 from controller import Robot
-import json, math
+import json, math, logging
 from maze import Maze
 from color_detector import ColorDetector
+
+logging.basicConfig(filename="log.txt", level=logging.DEBUG, format="%(asctime)s : %(levelname)s : %(message)s")
 
 ### Robot Constants ###
 MOTOR_MAX_SPEED = 6.28
@@ -98,14 +100,18 @@ class PuckController:
             return "W"
 
     def getWallPresent(self):
-        # front_distance = (self.distance_sensors[0].getValue() + self.distance_sensors[7].getValue()) / 2
-        # print(front_distance)
+        front_left_distance = self.distance_sensors[7].getValue() 
+        front_right_distance = self.distance_sensors[0].getValue()
+        logging.debug("Front left distance - " + str(front_left_distance))
+        logging.debug("Front right distance - " + str(front_right_distance))
+        
         # if front_distance > 120:
         #     return 0
         # valid_colors = ["green", "teal", "lime", "olive"]
         # if self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW):
         #     return 0
         # return 1
+        
         user_input = input("Enter 0 if wall is present : ")
         if int(user_input) == 0:
             return 0
@@ -138,7 +144,7 @@ class PuckController:
 
     def turn(self, direction):
         orientation = self.getOrientation(self.position[2])
-        print("Turning", direction)
+        logging.info("Turning " + direction)
         if direction == "right":
             turn_dir = 1
             if orientation == "N":
@@ -199,12 +205,12 @@ class PuckController:
         self.stopMotors()
 
     def goFoward(self, target_cell):
-        # print("Going foward")
+        logging.info("Going foward")
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
-        # print(target_cell)
+        logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
-        # print(ideal_position)
+        logging.debug("Target position - " + str(ideal_position))
 
         stop_target = ideal_position[self.robot_x_axis]
         centerline = ideal_position[self.robot_y_axis]
@@ -248,12 +254,12 @@ class PuckController:
         return True
 
     def goBackward(self, target_cell):
-        # print("Going backward")
+        logging.info("Going backward")
         start_time = self.time
         orientation = self.getOrientation(self.position[2])
-        # print(target_cell)
+        logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
-        # print(ideal_position)
+        logging.debug("Target position - " + str(ideal_position))
 
         stop_target = ideal_position[self.robot_x_axis]
         centerline = ideal_position[self.robot_y_axis]
@@ -297,7 +303,7 @@ class PuckController:
         return True
 
     def moveToNextCell(self, current_cell, next_cell):
-        # print("Moving from", current_cell, "to", next_cell)
+        logging.info("Moving from" + str(current_cell) + "to" + str(next_cell))
         front_dir = self.getOrientation(self.position[2])
         if front_dir == "N":
             if next_cell[0] < current_cell[0]:
@@ -378,18 +384,17 @@ class PuckController:
                 is_not_facing_wall = self.getWallPresent()
                 self.camera.saveImage("images\\" + str(maze_coord) + facing_dir + str(is_not_facing_wall) + ".png", 100)
                 self.maze.addWallToMaze(maze_coord, facing_dir, is_not_facing_wall)
-            #     if not is_not_facing_wall:
-            #         print(maze_coord, "Wall seen on", facing_dir)
-            #     else:
-            #         print(maze_coord, "No wall seen on", facing_dir)
-            # else:
-            #     print(maze_coord, "Wall known on", facing_dir)
+                if not is_not_facing_wall:
+                    logging.info(str(maze_coord) + " - Wall seen on " + facing_dir)
+                else:
+                    logging.info(str(maze_coord) + " - No wall seen on " + facing_dir)
+            else:
+                logging.info(str(maze_coord) + " - Wall known on " + facing_dir)
 
         directions = ["N", "E", "S", "W"]
         facing_dir = self.getOrientation(self.position[2])
         cell_info = self.maze.maze_map[maze_coord]
         walls = [cell_info[d] for d in directions]
-        # print(walls)
         k = directions.index(facing_dir)
 
         right_turns = 0
@@ -444,7 +449,7 @@ class PuckController:
             self.path = self.maze.getPath(current_cell, exchanger_cell)
         else:
             self.path = self.maze.getPath(current_cell, (1,1))
-            print("Targetless (Learning Path Only)")
+            logging.debug("Path selection - Targetless (Learning Path Only)")
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
@@ -479,11 +484,10 @@ class PuckController:
             elif state == 2:
                 current_cell = self.getCurrentCell()
                 self.setPath(current_cell)
-                print(current_cell)
 
                 next_cell = self.path[current_cell]
                 if not self.moveToNextCell(current_cell, next_cell):
-                    print("Error moving to cell", next_cell)
+                    logging.error("Error moving to cell " + str(next_cell))
                     state = 1
                     continue                    
 

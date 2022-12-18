@@ -4,3 +4,4 @@ images/
 tests/
 saved_maze.csv
 tester.py
+log.txt
