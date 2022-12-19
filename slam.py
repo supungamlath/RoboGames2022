@@ -1,6 +1,6 @@
 import logging
 
-PROXIMITY_THRESHOLD = 90
+PROXIMITY_THRESHOLD = 80
 CAMERA_TEST_PIXEL_ROW = 28
 CELL_OFFSET = 1 # Wall data should be offset by this constant to account for the robot's diameter 
 
@@ -13,6 +13,10 @@ class SLAM:
         self.color_detector = color_detector
         self.maze_coord = None
         self.orientation = None
+
+    # Function to detect whether object is in proximity to given sensor 
+    def isObjectInProximity(self, sensor_name):
+        return self.distance_sensors[sensor_name].getValue() > PROXIMITY_THRESHOLD
 
     def getWallFromProximity(self):
         left_distance = self.distance_sensors["left"].getValue() 
