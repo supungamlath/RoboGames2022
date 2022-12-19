@@ -2,38 +2,47 @@ import logging
 
 PROXIMITY_THRESHOLD = 90
 CAMERA_TEST_PIXEL_ROW = 28
+CELL_OFFSET = 1 # Wall data should be offset by this constant to account for the robot's diameter 
 
 # Class for Simultaneous Localization and Mapping
 class SLAM:
-    def __init__(self, maze, camera, distance_sensors):
+    def __init__(self, maze, camera, distance_sensors, color_detector):
         self.maze = maze
         self.camera = camera
         self.distance_sensors = distance_sensors
+        self.color_detector = color_detector
         self.maze_coord = None
         self.orientation = None
 
     def getWallFromProximity(self):
-        left_distance = self.distance_sensors[5].getValue() 
-        right_distance = self.distance_sensors[2].getValue()
-        front_left_distance = self.distance_sensors[7].getValue() 
-        front_right_distance = self.distance_sensors[0].getValue()
-        mid_left_distance = self.distance_sensors[6].getValue() 
-        mid_right_distance = self.distance_sensors[1].getValue()
+        left_distance = self.distance_sensors["left"].getValue() 
+        right_distance = self.distance_sensors["right"].getValue()
+        front_left_distance = self.distance_sensors["front-left"].getValue() 
+        front_right_distance = self.distance_sensors["front-right"].getValue()
+        left_corner_distance = self.distance_sensors["left-corner"].getValue() 
+        right_corner_distance = self.distance_sensors["right-corner"].getValue()
         logging.debug("Left distance - " + str(left_distance))
         logging.debug("Right distance - " + str(right_distance))
         logging.debug("Front left distance - " + str(front_left_distance))
         logging.debug("Front right distance - " + str(front_right_distance))
-        logging.debug("Mid left distance - " + str(mid_left_distance))
-        logging.debug("Mid right distance - " + str(mid_right_distance))
+        logging.debug("Left corner distance - " + str(left_corner_distance))
+        logging.debug("Right corner distance - " + str(right_corner_distance))
         
-        is_front_blocked = (front_left_distance > PROXIMITY_THRESHOLD) or (front_right_distance > PROXIMITY_THRESHOLD) or (mid_left_distance > PROXIMITY_THRESHOLD) or (mid_right_distance > PROXIMITY_THRESHOLD)
+        is_front_blocked = (front_left_distance > PROXIMITY_THRESHOLD) or (front_right_distance > PROXIMITY_THRESHOLD) or (left_corner_distance > PROXIMITY_THRESHOLD) or (right_corner_distance > PROXIMITY_THRESHOLD)
         is_left_blocked = left_distance > PROXIMITY_THRESHOLD
         is_right_blocked = right_distance > PROXIMITY_THRESHOLD
         return is_front_blocked, is_left_blocked, is_right_blocked
 
-    def getWallFromCamera(self):
-        valid_colors = ["green", "teal", "lime", "olive"]
-        return self.color_detector.testColorInCameraRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
+    def setWallFromCamera(self, maze_coord, facing_dir):
+        # valid_colors = ["black", "green", "teal", "lime", "olive"]
+        valid_colors = ["black"]
+        is_wall_infront = self.color_detector.testColorInImageRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
+        if is_wall_infront:
+            self.saveImage(0)
+            self.setPathBlocked(maze_coord, facing_dir, CELL_OFFSET)
+        else:
+            self.saveImage(1)
+        return is_wall_infront
 
     def getWallManually(self):
         user_input = input("Enter 0 if wall is present : ")
@@ -41,48 +50,42 @@ class SLAM:
             return True
         return False
 
-    def updateMaze(self, cell_dir, is_not_facing_wall):
-        self.maze.addDataToMaze(self.maze_coord, cell_dir, is_not_facing_wall)
-        if is_not_facing_wall:
-            logging.info(str(self.maze_coord) + " - No wall seen on " + self.orientation)
-        else:
-            logging.info(str(self.maze_coord) + " - Wall seen on " + self.orientation)
+    def setCellDirectionBlocked(self, cell, direction):
+        updatable_cell = self.maze.getCellInDirection(cell, direction, CELL_OFFSET)
+        self.maze.addDataToMaze(updatable_cell, 0)
 
     def saveImage(self, is_not_facing_wall):
         self.camera.saveImage("images\\" + str(self.maze_coord) + self.orientation + str(is_not_facing_wall) + ".png", 100)
-
-    def setPathBlocked(self, maze_coord, blocked_dir):
-        self.maze.addDataToMaze(maze_coord, blocked_dir, 0)
 
     def mapWalls(self, maze_coord, orientation):
         self.maze_coord = maze_coord
         self.orientation = orientation
 
         is_front_blocked, is_left_blocked, is_right_blocked = self.getWallFromProximity()
-        # cell_info = self.maze.maze_map[self.maze_coord]
       
+        front_cell = self.maze.getCellInDirection(self.maze_coord, self.orientation, CELL_OFFSET)
         if is_front_blocked: 
             logging.debug(str(self.maze_coord) + " " + self.orientation + " - Front blocked")
-            print("Front blocked")
-            self.updateMaze(self.orientation, 0)
-            # self.saveImage(0)
+            print(self.maze_coord, "Front blocked")
+            self.maze.addDataToMaze(front_cell, 0)
         else:
-            self.updateMaze(self.orientation, 1)
-            # self.saveImage(1)
+            self.maze.addDataIfUnknown(front_cell, 1)
 
         left_dir = self.maze.getLeftDir(self.orientation)
         right_dir = self.maze.getOppositeDir(left_dir)
 
+        left_cell = self.maze.getCellInDirection(self.maze_coord, left_dir, CELL_OFFSET)
         if is_left_blocked: 
-            self.updateMaze(left_dir, 0)
             logging.debug(str(self.maze_coord) + " - " + left_dir + " blocked")
-            print("Left blocked")
+            print(self.maze_coord, "Left blocked")
+            self.maze.addDataToMaze(left_cell, 0)
         else:
-            self.updateMaze(left_dir, 1)
+            self.maze.addDataIfUnknown(left_cell, 1)
 
+        right_cell = self.maze.getCellInDirection(self.maze_coord, right_dir, CELL_OFFSET)
         if is_right_blocked: 
-            self.updateMaze(right_dir, 0)
             logging.debug(str(self.maze_coord) + " - " + right_dir + " blocked")
-            print("Right blocked")
+            print(self.maze_coord, "Right blocked")
+            self.maze.addDataToMaze(right_cell, 0)
         else:
-            self.updateMaze(right_dir, 1)
+            self.maze.addDataIfUnknown(right_cell, 1)

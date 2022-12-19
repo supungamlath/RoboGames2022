@@ -42,21 +42,34 @@ class ColorDetector:
             min_colours[(rd + gd + bd)] = name
         return min_colours[min(min_colours.keys())]
 
-    def testColorInCameraRow(self, test_colors, row):
-        # image = self.camera.getImage()
-        # width = self.camera.getWidth()
-        # height = self.camera.getHeight()
-        # area = width * height
-        # blue, green, red = 0, 0, 0
-        # for h in range(height):
-        #     for w in range(width):
-        #         blue += self.camera.imageGetBlue(image, width, w, h)
-        #         green += self.camera.imageGetGreen(image, width, w, h)
-        #         red += self.camera.imageGetRed(image, width, w, h)
-        # color_name = self.closestColour((red // area, green // area, blue // area))
-        # print(color_name)
-        # return color_name in test_colors
+    def testColorInImageRow(self, test_colors, row):
+        image = self.camera.getImage()
+        width = self.camera.getWidth()
+        blue, green, red = 0, 0, 0
+        for w in range(width):
+            blue += self.camera.imageGetBlue(image, width, w, row)
+            green += self.camera.imageGetGreen(image, width, w, row)
+            red += self.camera.imageGetRed(image, width, w, row)
+        color_name = self.closestColour((red // width, green // width, blue // width))
+        print(color_name)
+        return color_name in test_colors
         
+    def testColorInFullImage(self, test_colors):
+        image = self.camera.getImage()
+        width = self.camera.getWidth()
+        height = self.camera.getHeight()
+        area = width * height
+        blue, green, red = 0, 0, 0
+        for h in range(height):
+            for w in range(width):
+                blue += self.camera.imageGetBlue(image, width, w, h)
+                green += self.camera.imageGetGreen(image, width, w, h)
+                red += self.camera.imageGetRed(image, width, w, h)
+        color_name = self.closestColour((red // area, green // area, blue // area))
+        print(color_name)
+        return color_name in test_colors
+        
+    def testForRectangles(self):
         self.findRectangle()
 
     def get_image_from_camera(self):

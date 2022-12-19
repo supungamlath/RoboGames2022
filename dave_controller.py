@@ -10,15 +10,21 @@ from slam import SLAM
 logging.basicConfig(filename="log.txt", level=logging.DEBUG, format="%(asctime)s : %(levelname)s : %(message)s")
 
 ### Robot Constants ###
-MOTOR_MAX_SPEED = 6.28
-SPEED = 5.0
-TURN_SPEED = 1.5
+# MOTOR_MAX_SPEED = 6.28
+MOTOR_MAX_SPEED = 3.0
+# SPEED = 5.0
+SPEED = 2.0
+# TURN_SPEED = 1.5
+TURN_SPEED = 1.0
 CAPACITY = 10000
-MOVEMENT_TIMEOUT = 3
+TURN_TIMEOUT = 3
+MOVEMENT_TIMEOUT = 1
+PHOTO_TIMEOUT = 0.2
 
 ### Maze Constants ###
-GRID_SIZE = 110
-SQUARE_LENGTH = 0.04
+# Maze is 4 m by 4 m square with four 0.5 m extensions
+GRID_SIZE = 222
+SQUARE_LENGTH = 0.02
 
 ### Math Constants ###
 TWO_PI = math.pi * 2
@@ -44,15 +50,16 @@ class PuckController:
         # Camera initialization
         self.camera = self.robot.getDevice("camera")
         # self.camera.setFov(0.62)
+        self.camera.setExposure(5.0)
         self.camera.enable(self.timestep)
         self.color_detector = ColorDetector(self.camera)
 
         # Proximity sensor initialization
-        self.distance_sensors = []
-        for i in range(8):
-            ds = self.robot.getDevice("ps" + str(i))
-            ds.enable(self.timestep)
-            self.distance_sensors.append(ds)
+        self.distance_sensors = {}
+        ps_names = ["front-right", "right-corner", "right", "rear-right", "rear-left", "left", "left-corner", "front-left"]
+        for ind, name in enumerate(ps_names):
+            self.distance_sensors[name] = self.robot.getDevice("ps" + str(ind))
+            self.distance_sensors[name].enable(self.timestep)
 
         # Motor initialization
         self.left_motor = self.robot.getDevice("left wheel motor")
@@ -64,14 +71,14 @@ class PuckController:
 
         # Maze initialization
         self.maze = Maze(GRID_SIZE, GRID_SIZE)
-        self.maze.loadMaze()
+        self.maze.resetMaze()
         self.money_drops = []
         self.exchanger_locs = []
         self.path = None
         self.travelled_cells = set()
 
         # Localization variables
-        self.slam = SLAM(self.maze, self.camera, self.distance_sensors)
+        self.slam = SLAM(self.maze, self.camera, self.distance_sensors, self.color_detector)
         self.robot_x_axis = 0 # x axis is the robot's vertical axis in Webots
         self.robot_y_axis = 1 # y axis is the robot's horizontal axis in Webots
         self.position = [0, 0, 0]
@@ -173,26 +180,25 @@ class PuckController:
             self.left_motor.setVelocity(TURN_SPEED * turn_dir)
             self.right_motor.setVelocity(-TURN_SPEED * turn_dir)
             self.updateRobotData()
-            if self.time - start_time > MOVEMENT_TIMEOUT:
+            if self.time - start_time > TURN_TIMEOUT:
                 print("Turn timed out")
                 self.stopMotors()
-                left_dir = self.maze.getLeftDir(start_orientation)
-                if direction == "left":
-                    self.slam.setPathBlocked(start_cell, left_dir)
-                elif direction == "right":
-                    right_dir = self.maze.getOppositeDir(left_dir)
-                    self.slam.setPathBlocked(start_cell, right_dir)
+                # left_dir = self.maze.getLeftDir(start_orientation)
+                # if direction == "left":
+                #     self.slam.setPathBlocked(start_cell, left_dir)
+                # elif direction == "right":
+                #     right_dir = self.maze.getOppositeDir(left_dir)
+                #     self.slam.setPathBlocked(start_cell, right_dir)
                 break
         self.stopMotors()
 
     def goFoward(self, target_cell):
         logging.info("Going foward")
         start_time = self.time
+        photo_time = start_time + PHOTO_TIMEOUT
         start_cell = self.getCurrentCell()
         start_orientation = self.orientation
-        logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
-        logging.debug("Target position - " + str(ideal_position))
 
         stop_target = ideal_position[self.robot_x_axis]
         centerline = ideal_position[self.robot_y_axis]
@@ -228,9 +234,15 @@ class PuckController:
             self.left_motor.setVelocity(SPEED + change)
             self.right_motor.setVelocity(SPEED - change)
             self.updateRobotData()
+            # if self.time > photo_time:
+            #     if self.slam.setWallFromCamera(start_cell, start_orientation):
+            #         self.stopMotors()
+            #         return False
+            #     photo_time = self.time + PHOTO_TIMEOUT
             if self.time - start_time > MOVEMENT_TIMEOUT:
+                logging.debug("Moving foward - Current time " + str(self.time) + " Start time " + str(start_time))
                 self.stopMotors()
-                self.slam.setPathBlocked(start_cell, start_orientation)
+                self.slam.setCellDirectionBlocked(start_cell, start_orientation)
                 return False
 
         # self.stopMotors()
@@ -241,9 +253,7 @@ class PuckController:
         start_time = self.time
         start_cell = self.getCurrentCell()
         start_orientation = self.orientation
-        logging.debug("Target cell - " + str(target_cell))
         ideal_position = self.mazeCellToWorldCoords(target_cell)
-        logging.debug("Target position - " + str(ideal_position))
 
         stop_target = ideal_position[self.robot_x_axis]
         centerline = ideal_position[self.robot_y_axis]
@@ -280,8 +290,9 @@ class PuckController:
             self.right_motor.setVelocity(-SPEED + change)
             self.updateRobotData()
             if self.time - start_time > MOVEMENT_TIMEOUT:
+                logging.debug("Moving backward - Current time " + str(self.time) + " Start time " + str(start_time))
                 self.stopMotors()
-                self.slam.setPathBlocked(start_cell, self.maze.getOppositeDir(start_orientation))
+                self.slam.setCellDirectionBlocked(start_cell, self.maze.getOppositeDir(start_orientation))
                 return False
 
         # self.stopMotors()
@@ -404,7 +415,7 @@ class PuckController:
                     if cell in path:
                         return path
             
-            min_length = 1000
+            min_length = 10000
             min_path = None
             for loc in target_locs:
                 cell = self.worldCoordToMazeCell(loc)
@@ -415,16 +426,19 @@ class PuckController:
 
             return min_path
 
-        if len(self.money_drops) > 0 and self.rupees == 2000:
-            self.path = getShortestPath(self.money_drops, self.exchanger_locs[0])
-        elif len(self.money_drops) > 0 and self.rupees < 2000:
-            self.path = getShortestPath(self.money_drops, None)
-        elif self.rupees == CAPACITY:
-            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_locs[0])
-            self.path = self.maze.getPath(current_cell, exchanger_cell)
-        else:
-            self.path = self.maze.getPath(current_cell, (1,1))
-            logging.debug("Path selection - Targetless (Learning Path Only)")
+        # if len(self.money_drops) > 0 and self.rupees == 2000:
+        #     self.path = getShortestPath(self.money_drops, self.exchanger_locs[0])
+        # elif len(self.money_drops) > 0 and self.rupees < 2000:
+        #     self.path = getShortestPath(self.money_drops, None)
+        # elif self.rupees == CAPACITY:
+        #     exchanger_cell = self.worldCoordToMazeCell(self.exchanger_locs[0])
+        #     self.path = self.maze.getPath(current_cell, exchanger_cell)
+        # else:
+        #     self.path = self.maze.getPath(current_cell, (1,1))
+        #     logging.debug("Path selection - Targetless (Learning Path Only)")
+
+        goal = self.worldCoordToMazeCell(self.money_drops[0])
+        self.path = self.maze.getPath(current_cell, goal)
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
@@ -461,8 +475,9 @@ class PuckController:
                 self.setPath(current_cell)
 
                 next_cell = self.path[current_cell]
+                print("Moving from " + str(current_cell) + " to " + str(next_cell))
                 if not self.moveToNextCell(current_cell, next_cell):
-                    logging.debug("Error moving to cell " + str(next_cell) + " Recorded as blocked")
+                    print("Error moving to cell " + str(next_cell) + " Recorded as blocked")
                     state = 1
                     continue                    
 
