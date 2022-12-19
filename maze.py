@@ -1,9 +1,11 @@
 import csv, shutil, cv2, math, numpy as np
 from heapq import heappush, heappop
+from time import time
 from collections import deque
 from tempfile import NamedTemporaryFile
 
 CLOSE_TO_WALL_THRESHOLD = 2
+FILE_WRITE_PERIOD = 1
 
 class Maze:
     def __init__(self, rows, cols, filename="saved_maze.csv"):
@@ -15,12 +17,14 @@ class Maze:
         self.filename = filename
         self.fields = ["  cell  ", "state"]
         self.directionToAngle = {"N": 0, "E": math.pi/2, "S": math.pi, "W": 3*math.pi/2}
+        self.last_save_time = time()
     
     def resetMaze(self):
         self.createMazeFile()
         self.loadMaze()
    
     def createMazeFile(self):
+        self.last_save_time = time()
         with open(self.filename, "w") as f:
             lines = [",".join(self.fields) + "\n"]
             for i in range(1, self.rows + 1):
@@ -133,19 +137,23 @@ class Maze:
                 return
         return path_dict
 
-    def addDataToMaze(self, cell, state):
+    def saveMaze(self):
         tempfile = NamedTemporaryFile("w+t", newline="", delete=False)
         with open(self.filename, "r", newline="") as csvfile, tempfile:
             reader = csv.DictReader(csvfile, fieldnames=self.fields)
             writer = csv.DictWriter(tempfile, fieldnames=self.fields)
 
             for row in reader:
-                if row["  cell  "] == str(cell):
-                    row["state"] = state
+                row["state"] = self.maze_map[row["  cell  "]]
                 writer.writerow(row)
 
         shutil.move(tempfile.name, self.filename)
+
+    def addDataToMaze(self, cell, state):
         self.maze_map[cell] = state
+        if time() - self.last_save_time > FILE_WRITE_PERIOD:
+            self.saveMaze()
+            self.last_save_time = time()
 
     def addDataIfUnknown(self, cell, state):
         if self.maze_map[cell] == -1:
@@ -232,14 +240,16 @@ class Maze:
 
     def showMaze(self):
         # Create an empty NumPy array
-        image = np.zeros((self.rows, self.cols))
+        image = np.zeros((self.rows, self.cols,3))
 
         # Iterate through the dictionary and set the corresponding pixels in the image
         for (row, col), value in self.maze_map.items():
             if value == 0:
-                image[row-1][col-1] = 0
+                image[row-1][col-1] = (0,0,0)
+            elif value == 1:
+                image[row-1][col-1] = (0,255,0)
             else:
-                image[row-1][col-1] = 1
+                image[row-1][col-1] = (255,255,255)
 
         # Show the image with the rectangles
         cv2.namedWindow("Resized_Window", cv2.WINDOW_NORMAL)
