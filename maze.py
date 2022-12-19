@@ -92,6 +92,17 @@ class Maze:
             return "E"
 
     @staticmethod
+    def getLeftDir(direction):
+        if direction == "N":
+            return "W"
+        elif direction == "E":
+            return "N"
+        elif direction == "S":
+            return "E"
+        elif direction == "W":
+            return "S"
+
+    @staticmethod
     def getAdjacentCell(cell, direction):
         if direction == "N":
             return (cell[0] - 1, cell[1])
@@ -109,16 +120,18 @@ class Maze:
             writer = csv.DictWriter(tempfile, fieldnames=self.fields)
 
             adj_cell = self.getAdjacentCell(cell, direction)
+            opposite_dir = self.getOppositeDir(direction)
             for row in reader:
                 if row["  cell  "] == str(cell):
                     row[direction] = wall_present
                 elif row["  cell  "] == str(adj_cell):
-                    row[self.getOppositeDir(direction)] = wall_present
+                    row[opposite_dir] = wall_present
 
                 writer.writerow(row)
 
         shutil.move(tempfile.name, self.filename)
         self.maze_map[cell][direction] = wall_present
+        self.maze_map[adj_cell][opposite_dir] = wall_present
 
     def solveMaze(self, start, goal):
         self.path = self.BFS(start, goal)

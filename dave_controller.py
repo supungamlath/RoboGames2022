@@ -14,11 +14,11 @@ MOTOR_MAX_SPEED = 6.28
 SPEED = 5.0
 TURN_SPEED = 1.5
 CAPACITY = 10000
-MOVEMENT_TIMEOUT = 2.5
+MOVEMENT_TIMEOUT = 3
 
 ### Maze Constants ###
-GRID_SIZE = 44
-SQUARE_LENGTH = 0.1
+GRID_SIZE = 110
+SQUARE_LENGTH = 0.04
 
 ### Math Constants ###
 TWO_PI = math.pi * 2
@@ -124,6 +124,8 @@ class PuckController:
     ### Motion Functions ###
     def turn(self, direction):
         logging.info("Turning " + direction)
+        start_time = self.time
+        start_cell = self.getCurrentCell()
         start_orientation = self.orientation
         if direction == "right":
             turn_dir = 1
@@ -182,6 +184,16 @@ class PuckController:
             self.left_motor.setVelocity(TURN_SPEED * turn_dir)
             self.right_motor.setVelocity(-TURN_SPEED * turn_dir)
             self.updateRobotData()
+            if self.time - start_time > MOVEMENT_TIMEOUT:
+                print("Turn timed out")
+                self.stopMotors()
+                left_dir = self.maze.getLeftDir(start_orientation)
+                if direction == "left":
+                    self.slam.setPathBlocked(start_cell, left_dir)
+                elif direction == "right":
+                    right_dir = self.maze.getOppositeDir(left_dir)
+                    self.slam.setPathBlocked(start_cell, right_dir)
+                break
         self.stopMotors()
 
     def goFoward(self, target_cell):
@@ -366,31 +378,31 @@ class PuckController:
         return (y, x)
 
     def turnAndMap(self, maze_coord):
-        directions = ["N", "E", "S", "W"]
-        cell_info = self.maze.maze_map[maze_coord]
-        walls = [cell_info[d] for d in directions]
-        k = directions.index(self.orientation)
+        # directions = ["N", "E", "S", "W"]
+        # cell_info = self.maze.maze_map[maze_coord]
+        # walls = [cell_info[d] for d in directions]
+        # k = directions.index(self.orientation)
 
-        right_turns = 0
-        for i in range(4):
-            if walls[k] == -1:
-                right_turns = i
-            k = (k + 1) % 4
-        left_turns = 0
-        for i in range(4):
-            if walls[k] == -1:
-                left_turns = i
-            k = (k - 1) % 4
+        # right_turns = 0
+        # for i in range(4):
+        #     if walls[k] == -1:
+        #         right_turns = i
+        #     k = (k + 1) % 4
+        # left_turns = 0
+        # for i in range(4):
+        #     if walls[k] == -1:
+        #         left_turns = i
+        #     k = (k - 1) % 4
 
         self.slam.mapWalls(maze_coord, self.orientation)
-        if right_turns > left_turns:
-            for i in range(left_turns):
-                self.turn("left")
-                self.slam.mapWalls(maze_coord, self.orientation)
-        else:
-            for i in range(right_turns):
-                self.turn("right")
-                self.slam.mapWalls(maze_coord, self.orientation)
+        # if right_turns > left_turns:
+        #     for i in range(left_turns):
+        #         self.turn("left")
+        #         self.slam.mapWalls(maze_coord, self.orientation)
+        # else:
+        #     for i in range(right_turns):
+        #         self.turn("right")
+        #         self.slam.mapWalls(maze_coord, self.orientation)
 
     def setPath(self, current_cell):
         def getShortestPath(target_locs, return_loc):
@@ -430,6 +442,7 @@ class PuckController:
 
     ### Main function ###
     def run(self):
+        logging.info("Starting Robot")
         state = 1
 
         while self.robot.step(self.timestep) != -1:
