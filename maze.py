@@ -1,4 +1,4 @@
-import csv, shutil
+import csv, shutil, math
 from collections import deque
 from tempfile import NamedTemporaryFile
 
@@ -11,6 +11,7 @@ class Maze:
         self.path = {}
         self.filename = filename
         self.fields = ["  cell  ", "E", "W", "N", "S"]
+        self.directionToAngle = {"N": 0, "E": math.pi/2, "S": math.pi, "W": 3*math.pi/2}
    
         with open(self.filename, "w") as f:
             lines = [",".join(self.fields) + "\n"]
@@ -101,6 +102,11 @@ class Maze:
             return "E"
         elif direction == "W":
             return "S"
+
+    @staticmethod
+    def getRightDir(direction):
+        left_dir = Maze.getLeftDir(direction)
+        return Maze.getOppositeDir(left_dir)
 
     @staticmethod
     def getAdjacentCell(cell, direction):

@@ -129,25 +129,14 @@ class PuckController:
         start_orientation = self.orientation
         if direction == "right":
             turn_dir = 1
-            if start_orientation == "N":
-                expected_bearing = HALF_PI
-            elif start_orientation == "E":
-                expected_bearing = PI
-            elif start_orientation == "S":
-                expected_bearing = PI + HALF_PI
-            else:
+            if start_orientation == "W":
                 expected_bearing = TWO_PI
+            else:
+                expected_bearing = self.maze.directionToAngle[self.maze.getRightDir(start_orientation)]
 
         elif direction == "left":
             turn_dir = -1
-            if start_orientation == "N":
-                expected_bearing = PI + HALF_PI
-            elif start_orientation == "E":
-                expected_bearing = 0
-            elif start_orientation == "S":
-                expected_bearing = HALF_PI
-            else:
-                expected_bearing = PI         
+            expected_bearing = self.maze.directionToAngle[self.maze.getLeftDir(start_orientation)]
 
         # TODO - Fix specified angle rotation 
         else:
