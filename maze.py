@@ -15,7 +15,7 @@ class Maze:
         self.grid = []
         self.path = {}
         self.filename = filename
-        self.fields = ["  cell  ", "state"]
+        self.fields = ["cell", "state"]
         self.directionToAngle = {"N": 0, "E": math.pi/2, "S": math.pi, "W": 3*math.pi/2}
         self.last_save_time = time()
     
@@ -31,13 +31,7 @@ class Maze:
                 for j in range(1, self.cols + 1):
                     parts = ["\"" + str((i, j)) + "\""]
                     parts.append("-1")
-                    if i == 1:
-                        parts[1] = "0"
-                    elif i == self.rows:
-                        parts[1] = "0"
-                    if j == 1:
-                        parts[1] = "0"
-                    elif j == self.cols:
+                    if i == 1 or i == self.rows or j == 1 or j == self.cols:
                         parts[1] = "0"
                     line = ",".join(parts) + "\n" 
                     lines.append(line)
@@ -47,7 +41,7 @@ class Maze:
         # Load maze from CSV file
         with open(self.filename, "r", newline="") as f:
             for row in csv.DictReader(f):
-                cell = [int(i) for i in row["  cell  "].strip("()").split(", ")]
+                cell = [int(i) for i in row["cell"].strip("()").split(", ")]
                 self.maze_map[tuple(cell)] = int(row["state"])
 
     @staticmethod
@@ -139,12 +133,11 @@ class Maze:
 
     def saveMaze(self):
         tempfile = NamedTemporaryFile("w+t", newline="", delete=False)
-        with open(self.filename, "r", newline="") as csvfile, tempfile:
-            reader = csv.DictReader(csvfile, fieldnames=self.fields)
+        with open(tempfile.name, "w", newline="") as tempfile:
             writer = csv.DictWriter(tempfile, fieldnames=self.fields)
-
-            for row in reader:
-                row["state"] = self.maze_map[row["  cell  "]]
+            writer.writeheader()
+            for cell, state in self.maze_map.items():
+                row = {"cell":cell, "state":state}
                 writer.writerow(row)
 
         shutil.move(tempfile.name, self.filename)

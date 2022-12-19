@@ -448,6 +448,7 @@ class PuckController:
     def run(self):
         logging.info("Starting Robot")
         state = 0
+        first_run = True
 
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
@@ -455,9 +456,16 @@ class PuckController:
             
             # State 0 - Use Left Hand to the Wall Algorithm to follow walls and map valid paths
             if state == 0:
+                if first_run:
+                    self.turn("left")
+                    while (not self.slam.isObjectInProximity("front-left")):
+                        self.left_motor.setVelocity(SEARCH_SPEED)
+                        self.right_motor.setVelocity(SEARCH_SPEED)
+                        self.updateRobotData()
+                    first_run = False
+
                 current_cell = self.getCurrentCell()
                 self.maze.addDataIfUnknown(current_cell, 1)
-
 
                 if self.slam.isObjectInProximity("front-left"):
                     # print("Turn right in place")
