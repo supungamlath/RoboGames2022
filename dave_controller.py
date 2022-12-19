@@ -16,6 +16,7 @@ MOTOR_MAX_SPEED = 3.0
 SPEED = 2.0
 # TURN_SPEED = 1.5
 TURN_SPEED = 1.0
+SEARCH_SPEED = 6.28
 CAPACITY = 10000
 TURN_TIMEOUT = 3
 MOVEMENT_TIMEOUT = 1
@@ -446,22 +447,40 @@ class PuckController:
     ### Main function ###
     def run(self):
         logging.info("Starting Robot")
-        state = 1
+        state = 0
 
         while self.robot.step(self.timestep) != -1:
             # Robot behavior is modeled as a state machine
             self.updateRobotData()
-            # Goal Algorithm V1 30 Minute Efficency: 0.23269213722187745
-            # Goal Algorithm V2 30 Minute Efficency: 0.20543138369696537
-            # Goal Algorithm V3 30 Minute Efficency: 0.2214623602572507
-            # Goal Algorithm V4 30 Minute Efficency: 0.23749558147755387
-
-            # Goal Algorithm V2 1 Hour Count: 241.666
-            # Goal Algorithm V3 1 Hour Count: 255.555
-            # Goal Algorithm V4 1 Hour Count: 263.888
             
+            # State 0 - Use Left Hand to the Wall Algorithm to follow walls and map valid paths
+            if state == 0:
+                current_cell = self.getCurrentCell()
+                self.maze.addDataIfUnknown(current_cell, 1)
+
+
+                if self.slam.isObjectInProximity("front-left"):
+                    # print("Turn right in place")
+                    self.left_motor.setVelocity(SEARCH_SPEED)
+                    self.right_motor.setVelocity(-SEARCH_SPEED)
+
+                elif self.slam.isObjectInProximity("left-corner"):
+                    # print("Came too close, drive right")
+                    self.left_motor.setVelocity(SEARCH_SPEED)
+                    self.right_motor.setVelocity(SEARCH_SPEED / 8)
+
+                elif self.slam.isObjectInProximity("left"):
+                    # print("Drive foward")
+                    self.left_motor.setVelocity(SEARCH_SPEED)
+                    self.right_motor.setVelocity(SEARCH_SPEED)
+
+                else:
+                    # print("Turn left")
+                    self.left_motor.setVelocity(SEARCH_SPEED / 8)
+                    self.right_motor.setVelocity(SEARCH_SPEED)
+
             # State 1: Turn around to find walls
-            if state == 1:
+            elif state == 1:
                 current_cell = self.getCurrentCell()
                 self.travelled_cells.add(current_cell)
 
