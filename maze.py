@@ -3,9 +3,10 @@ from heapq import heappush, heappop
 from time import time
 from collections import deque
 from tempfile import NamedTemporaryFile
+from image_processing import *
 
 CLOSE_TO_WALL_THRESHOLD = 2
-FILE_WRITE_PERIOD = 1
+FILE_WRITE_PERIOD = 2
 
 class Maze:
     def __init__(self, rows, cols, filename="saved_maze.csv"):
@@ -142,15 +143,22 @@ class Maze:
 
         shutil.move(tempfile.name, self.filename)
 
-    def addDataToMaze(self, cell, state):
+    def addDataToMaze(self, cell, state, offsets = {"N":0, "E":0, "S":0, "W":0}):
         self.maze_map[cell] = state
+        for dy_north in range(1, offsets["N"] + 1):
+            for dx_east in range(1, offsets["E"] + 1):
+                self.maze_map[(cell[0] - dy_north, cell[1] + dx_east)] = state
+        for dy_south in range(1, offsets["S"] + 1):
+            for dx_west in range(1, offsets["W"] + 1):
+                self.maze_map[(cell[0] + dy_south, cell[1] - dx_west)] = state
+
         if time() - self.last_save_time > FILE_WRITE_PERIOD:
             self.saveMaze()
             self.last_save_time = time()
 
-    def addDataIfUnknown(self, cell, state):
+    def addDataIfUnknown(self, cell, state, offsets = {"N":0, "E":0, "S":0, "W":0}):
         if self.maze_map[cell] == -1:
-            self.addDataToMaze(cell, state)
+            self.addDataToMaze(cell, state, offsets)
 
     def isCloseToWall(self, cell):
         for dy in range(-CLOSE_TO_WALL_THRESHOLD, CLOSE_TO_WALL_THRESHOLD + 1):
@@ -251,12 +259,14 @@ class Maze:
         cv2.resizeWindow("Resized_Window", self.rows*3, self.cols*3)
         
         # Displaying the image
-        cv2.imshow("Resized_Window", image)
+        cv2.imshow("Resized_Window", drawMaze(image))
 
         # Wait for a key press to close the window
         cv2.waitKey(0)
 
         # Destroy all windows
         cv2.destroyAllWindows()
+
+
 
 

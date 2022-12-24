@@ -15,7 +15,7 @@ MOTOR_MAX_SPEED = 3.0
 # SPEED = 5.0
 SPEED = 2.0
 # TURN_SPEED = 1.5
-TURN_SPEED = 1.0
+TURN_SPEED = 1.5
 SEARCH_SPEED = 6.28
 CAPACITY = 10000
 TURN_TIMEOUT = 3
@@ -450,9 +450,10 @@ class PuckController:
         state = 0
         first_run = True
 
-        while self.robot.step(self.timestep) != -1:
+        while True:
             # Robot behavior is modeled as a state machine
-            self.updateRobotData()
+            while not self.updateRobotData():
+                print("Waiting for transmitter to connect...")
             
             # State 0 - Use Left Hand to the Wall Algorithm to follow walls and map valid paths
             if state == 0:
@@ -465,7 +466,9 @@ class PuckController:
                     first_run = False
 
                 current_cell = self.getCurrentCell()
-                self.maze.addDataIfUnknown(current_cell, 1)
+                offsets = {"N":1, "E":1, "S":1, "W":1}
+                offsets[self.maze.getRightDir(self.orientation)] = 2
+                self.maze.addDataIfUnknown(current_cell, state=1, offsets=offsets)
 
                 if self.slam.isObjectInProximity("front-left"):
                     # print("Turn right in place")
