@@ -6,83 +6,52 @@ import math, numbers
 TWO_PI = math.pi * 2
 
 class Angle:
-    def __init__(self, value = 0, mode = "radians"):
+    def __init__(self, value, unit = "radians"):
         """
-        Creates an `Angle` instance representing the angle `value` in the angular unit specified by `mode`.
+        Creates an `Angle` instance representing the angle `value` in the angular unit specified by `unit`.
         
-        `mode` can be "radians", "degrees", "gradians", "hours", "arcminutes", "arcseconds", or "vector" (see `angle_instance.vector` for more info).
+        `unit` can be "radians", "degrees", "gradians", "hours", "arcminutes", "arcseconds", or "vector" (see `angle_instance.vector` for more info).
         """
+        self.radians = 0
+
         if isinstance(value, Angle): self.radians = value.radians
-        elif mode == "vector": self.vector(value)
+        elif unit == "vector": self.vector(value)
         elif not isinstance(value, numbers.Real): raise ValueError("Value \"{}\" must be a real-number-like object".format(value))
-        elif mode == "radians": self.radians = value
-        elif mode == "degrees": self.degrees(value)
-        elif mode == "gradians": self.gradians(value)
-        elif mode == "hours": self.hours(value)
-        elif mode == "arcminutes": self.arcminutes(value)
-        elif mode == "arcseconds": self.arcseconds(value)
-        else: raise ValueError("Angle mode \"{}\" must be one of \"radians\", \"degrees\", \"gradians\", \"hours\", \"arcminutes\", \"arcseconds\", or \"vector\"".format(mode))
+        elif unit == "radians": self.radians = value
+        elif unit == "degrees": self.degrees(value)
+        elif unit == "gradians": self.gradians(value)
+        elif unit == "hours": self.hours(value)
+        elif unit == "arcminutes": self.arcminutes(value)
+        elif unit == "arcseconds": self.arcseconds(value)
+        else: raise ValueError("Angle mode \"{}\" must be one of \"radians\", \"degrees\", \"gradians\", \"hours\", \"arcminutes\", \"arcseconds\", or \"vector\"".format(unit))
         self.normalize()
 
     # various conversions between angles and numerical representations of angles
-    @property
-    def degrees(self):
-        """Returns the represented angle in degrees as a plain number."""
-        return math.degrees(self.radians)
-    @degrees.setter
     def degrees(self, value):
         """Sets the represented angle to the angle represented by `value` in degrees."""
         self.radians = math.radians(value)
-    @property
-    def gradians(self):
-        """Returns the represented angle in gradians as a plain number."""
-        return self.radians * 400 / TWO_PI
-    @gradians.setter
+
     def gradians(self, value):
         """Sets the represented angle to the angle represented by `value` in gradians."""
         self.radians = value * TWO_PI / 400
-    @property
-    def hours(self):
-        """Returns the represented angle in hours as a plain number."""
-        return self.radians * 24 / TWO_PI
-    @hours.setter
+
     def hours(self, value):
         """Sets the represented angle to the angle represented by `value` in hours."""
         self.radians = value * TWO_PI / 24
-    @property
-    def arcminutes(self):
-        """Returns the represented angle in arcminutes as a plain number."""
-        return (self.radians * 360 / TWO_PI) * 60
-    @arcminutes.setter
+
     def arcminutes(self, value):
         """Sets the represented angle to the angle represented by `value` in arcminutes."""
         self.radians = (value / 60) * TWO_PI / 360
-    @property
-    def arcseconds(self):
-        """Returns the represented angle in arcseconds as a plain number."""
-        return (self.radians * 360 / TWO_PI) * 3600
-    @arcseconds.setter
+
     def arcseconds(self, value):
         """Sets the represented angle to the angle represented by `value` in arcseconds."""
         self.radians = (value / 3600) * TWO_PI / 360
-    @property
-    def vector(self):
-        """Returns a 2D unit vector `(X_VALUE, Y_VALUE)` that is at the represented angle counterclockwise from the positive X axis (standard position)."""
-        return math.cos(self.radians), math.sin(self.radians)
-    @vector.setter
+
     def vector(self, value):
         """Sets the represented angle to the angle that `value`, a vector `(X_VALUE, Y_VALUE)`, has counterclockwise from the positive X axis (standard position)."""
         if len(value) != 2: raise ValueError("Invalid vector \"{}\"".format(value))
         if value[0] == 0 == value[1]: raise ValueError("Zero vector (0, 0) has undefined angle".format(value))
         self.radians = math.atan2(value[1], value[0])
-    @property
-    def x(self):
-        """Returns the X axis component of a 2D unit vector `(X_VALUE, Y_VALUE)` at the represented angle counterclockwise from the positive X axis (standard position)."""
-        return math.cos(self.radians)
-    @property
-    def y(self):
-        """Returns the Y axis component of a 2D unit vector `(X_VALUE, Y_VALUE)` at the represented angle counterclockwise from the positive X axis (standard position)."""
-        return math.sin(self.radians)
     
     # make it behave like a real number
     def __add__(self, angle):
@@ -135,13 +104,19 @@ class Angle:
     def angle_between(self, angle):
         """Returns a new `Angle` instance that represents the smallest of the two possible angles between `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
         return min(self.angle_between_clockwise(angle), angle.angle_between_clockwise(self))
-    def angle_within(self, lower, upper, strictly_within = False):
-        """Returns `True` if this `Angle` instance is within the angles `lower` and `upper` on the unit circle - inclusive if `strictly_within` is falsy, exclusive otherwise. Returns `False` otherwise."""
-        if lower > upper: lower, upper = upper, lower # swap bounds if upper bound is greater than lower bound
-        lower, upper = Angle(lower), Angle(upper)
+    def angle_within(angle, angle_1, angle_2):
+        # Normalize the angles to be within the range [0, 2*pi]
+        angle = Angle(angle)
+        angle_1 = Angle(angle_1)
+        angle_2 = Angle(angle_2)
+
+        # Ensure that angle_1 is the smaller angle and angle_2 is the larger angle
+        if angle_1 > angle_2:
+            angle_1, angle_2 = angle_2, angle_1
         
-        if strictly_within: return lower.radians < self.radians < upper.radians
-        return lower.radians <= self.radians <= upper.radians
+        # Check if angle is within the range determined by angle_1 and angle_2
+        return angle_1 <= angle <= angle_2
+
     def angle_to(self, angle):
         """Returns a new `Angle` instance that represents the angle with the smallest magnitude that, when added to this `Angle` instance, results in `angle` on the unit circle."""
         clockwise = self.angle_between_clockwise(angle)
