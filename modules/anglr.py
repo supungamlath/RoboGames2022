@@ -1,4 +1,4 @@
-"""Planar angle mathematics library for Python."""
+"""Planar angle mathematics module for Python."""
 """Modified from Anthony Zhang's anglr library"""
 
 import math, numbers
@@ -90,20 +90,24 @@ class Angle:
     def __str__(self): return "{} rad".format(self.radians)
     def __repr__(self): return "<Angle {} rad>".format(self.radians)
     def __hash__(self): return hash(self.radians)
-    def dump(self):
-        """Returns a string representation of the `Angle` instance that contains the represented angle in various units and formats, useful for debugging purposes."""
-        return "<Angle: {} radians, {} degrees, {} gradians, {} hours, {} arcminutes, {} arcseconds, offset ({}, {})>".format(self.radians, self.degrees, self.gradians, self.hours, self.arcminutes, self.arcseconds, self.x, self.y)
     
     # unit circle functions
     def normalize(self):
         """Returns a new `Angle` instance that represents the angle normalized on the unit circle to be between `lower` (inclusive) and `upper` (exclusive, defaults to `lower + TAU`)."""
         self.radians = self.radians % TWO_PI
-    def angle_between_clockwise(self, angle):
+
+    def angle_between_cw(self, angle):
         """Returns a new `Angle` instance that represents the clockwise angle from this `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
         return Angle((angle.radians - self.radians) % TWO_PI)
+
+    def angle_between_ccw(self, angle):
+        """Returns a new `Angle` instance that represents the counter clockwise angle from this `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
+        return angle.angle_between_cw(self)
+
     def angle_between(self, angle):
         """Returns a new `Angle` instance that represents the smallest of the two possible angles between `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
-        return min(self.angle_between_clockwise(angle), angle.angle_between_clockwise(self))
+        return min(self.angle_between_cw(angle), self.angle_between_ccw(angle))
+
     def angle_within(angle, angle_1, angle_2):
         # Normalize the angles to be within the range [0, 2*pi]
         angle = Angle(angle)
@@ -119,6 +123,6 @@ class Angle:
 
     def angle_to(self, angle):
         """Returns a new `Angle` instance that represents the angle with the smallest magnitude that, when added to this `Angle` instance, results in `angle` on the unit circle."""
-        clockwise = self.angle_between_clockwise(angle)
+        clockwise = self.angle_between_cw(angle)
         counterclockwise = -angle.angle_between_clockwise(self)
         return clockwise if clockwise <= abs(counterclockwise) else counterclockwise
