@@ -16,7 +16,6 @@ class SLAM:
         self.m_line = None
         self.last_intersection_distance = float("inf")
 
-
     # Function to detect whether object is in proximity to given sensor 
     def isObjectInProximity(self, sensor_name):
         return self.distance_sensors[sensor_name].getValue() > PROXIMITY_THRESHOLD
@@ -109,7 +108,7 @@ class SLAM:
         
         return slope, y_intercept
 
-    def getMLine(self, start_point, goal_point):
+    def setMLine(self, start_point, goal_point):
         if not self.m_line:
             self.m_line = self.findMLine(start_point, goal_point)
         return self.m_line
@@ -118,7 +117,7 @@ class SLAM:
         self.m_line = None
         self.last_intersection_distance = float("inf")
 
-    def intersectWithMLine(self, position, tolerance = 4):
+    def intersectWithMLine(self, position, tolerance = 0.05):
         x, y = position
         m, c = self.m_line
         distance = abs(y - m*x - c) / math.sqrt(m**2 + 1)
@@ -126,7 +125,13 @@ class SLAM:
 
     def isCloserToGoal(self, position, goal):
         distance = math.sqrt((position[0] - goal[0])**2 + (position[1] - goal[1])**2)
-        if distance < self.last_intersection_distance:
+        if self.last_intersection_distance - distance > 0.05 :
             self.last_intersection_distance = distance
             return True
         return False
+
+    def getAngleToGoal(self, start, goal):
+        dy = goal[1] - start[1]
+        dx = goal[0] - start[0]
+        angle = math.atan2(dy, dx)
+        return (2*math.pi - angle) % (2*math.pi)
