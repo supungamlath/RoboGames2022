@@ -1,4 +1,4 @@
-import logging
+import logging, math
 
 PROXIMITY_THRESHOLD = 80
 CAMERA_TEST_PIXEL_ROW = 28
@@ -13,6 +13,9 @@ class SLAM:
         self.color_detector = color_detector
         self.maze_coord = None
         self.orientation = None
+        self.m_line = None
+        self.last_intersection_distance = float("inf")
+
 
     # Function to detect whether object is in proximity to given sensor 
     def isObjectInProximity(self, sensor_name):
@@ -93,3 +96,37 @@ class SLAM:
             self.maze.addDataToMaze(right_cell, 0)
         else:
             self.maze.addDataIfUnknown(right_cell, 1)
+
+    def findMLine(self, point1, point2):
+        x1, y1 = point1
+        x2, y2 = point2
+        
+        # Calculate the slope of the line
+        slope = (y2 - y1) / (x2 - x1)
+        
+        # Calculate the y-intercept of the line
+        y_intercept = y1 - slope * x1
+        
+        return slope, y_intercept
+
+    def getMLine(self, start_point, goal_point):
+        if not self.m_line:
+            self.m_line = self.findMLine(start_point, goal_point)
+        return self.m_line
+
+    def clearMLine(self):
+        self.m_line = None
+        self.last_intersection_distance = float("inf")
+
+    def intersectWithMLine(self, position, tolerance = 4):
+        x, y = position
+        m, c = self.m_line
+        distance = abs(y - m*x - c) / math.sqrt(m**2 + 1)
+        return distance <= tolerance
+
+    def isCloserToGoal(self, position, goal):
+        distance = math.sqrt((position[0] - goal[0])**2 + (position[1] - goal[1])**2)
+        if distance < self.last_intersection_distance:
+            self.last_intersection_distance = distance
+            return True
+        return False
