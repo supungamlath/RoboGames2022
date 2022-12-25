@@ -167,18 +167,18 @@ class PuckController:
 
         else:
             expected_bearing = Angle(direction)
-            if expected_bearing.angle_between_clockwise(self.position[2]) < HALF_PI:
+            if self.position[2].angle_between_cw(expected_bearing) < HALF_PI:
                 turn_dir = 1
             else:
                 turn_dir = -1
 
 
         def shouldTurn(turn_dir, expected_bearing):
-            turned_angle = self.position[2]
+            current_angle = self.position[2]
             if turn_dir == 1:
-                return turned_angle < expected_bearing
+                return Angle(0) <= current_angle.angle_between_cw(expected_bearing) <= HALF_PI 
             else:
-                return turned_angle > expected_bearing
+                return Angle(0) <= current_angle.angle_between_ccw(expected_bearing) <= HALF_PI
 
         self.stopMotors()
         while shouldTurn(turn_dir, expected_bearing):
@@ -368,9 +368,11 @@ class PuckController:
             # State 0 - Follow line
             if state == 0:
                 print("State 0")
-                m_line = self.slam.getMLine((self.position[0], self.position[1]), self.goal)
-                gradient, intercept = m_line
-                self.turn(math.atan(gradient))
+                self.slam.setMLine((self.position[0], self.position[1]), self.goal)
+                
+                angle_to_goal = Angle(self.slam.getAngleToGoal((self.position[0], self.position[1]), self.goal))
+                if self.position[2].angle_between(angle_to_goal) > Angle(5, "degrees"):
+                    self.turn(angle_to_goal)
 
                 if not self.slam.isObjectInProximity("front-left") and not self.slam.isObjectInProximity("front-right"):
                     self.left_motor.setVelocity(SEARCH_SPEED)
