@@ -60,6 +60,10 @@ class PuckController:
         self.camera.enable(self.timestep)
         self.color_detector = ColorDetector(self.camera)
 
+        # LED initialization
+        for i in range(10):
+            self.robot.getDevice("led" + str(i)).set(1)
+
         # Proximity sensor initialization
         self.distance_sensors = {}
         ps_names = [
@@ -338,22 +342,53 @@ class PuckController:
             # print("Turn right in place")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(-SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
 
         elif self.slam.isObjectInProximity("left-corner"):
             # print("Came too close, drive right")
             self.left_motor.setVelocity(SEARCH_SPEED)
-            self.right_motor.setVelocity(SEARCH_SPEED / 8)
+            self.right_motor.setVelocity(-SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
 
         elif self.slam.isObjectInProximity("left"):
             # print("Drive foward")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
 
         else:
-            # print("Turn left")
             self.left_motor.setVelocity(SEARCH_SPEED / 8)
             self.right_motor.setVelocity(SEARCH_SPEED)
 
+        if self.slam.isWandering(self.time):
+            logging.debug("Left Hand to Wall - Wandering")
+            self.left_motor.setVelocity(SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED)
+
+    def rightHandToWall(self): 
+        if self.slam.isObjectInProximity("front-right"):
+            self.left_motor.setVelocity(-SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
+        
+        elif self.slam.isObjectInProximity("right-corner"):
+            self.left_motor.setVelocity(-SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
+        
+        elif self.slam.isObjectInProximity("right"):
+            self.left_motor.setVelocity(SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED)
+            self.slam.setLastProximityReadingTime(self.time)
+
+        else:
+            self.left_motor.setVelocity(SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED / 8)
+
+        if self.slam.isWandering(self.time):
+            logging.debug("Right Hand to Wall - Wandering")
+            self.left_motor.setVelocity(SEARCH_SPEED)
+            self.right_motor.setVelocity(SEARCH_SPEED)
 
     ### Main function ###
     def run(self):
@@ -365,11 +400,17 @@ class PuckController:
             while not self.updateRobotData():
                 print("Waiting for data...")
 
+            self.goal = self.money_drops[0]
+            logging.info("Goal - " + str(self.goal))
+
             # State 0 - Follow line
             if state == 0:
-                print("State 0")
                 self.slam.setMLine((self.position[0], self.position[1]), self.goal)
                 
+                if self.slam.hasReachedGoal((self.position[0], self.position[1]), self.goal):
+                    print("Reached goal")
+                    state = 2
+
                 angle_to_goal = Angle(self.slam.getAngleToGoal((self.position[0], self.position[1]), self.goal))
                 if self.position[2].angle_between(angle_to_goal) > Angle(5, "degrees"):
                     self.turn(angle_to_goal)
@@ -378,17 +419,21 @@ class PuckController:
                     self.left_motor.setVelocity(SEARCH_SPEED)
                     self.right_motor.setVelocity(SEARCH_SPEED)       
                 else:
+                    if self.slam.isWandering(self.time):
+                        logging.debug("State 0 - Wandering")
+                        self.turn(0)
                     state = 1
 
             # State 1: Go around obstacles
             elif state == 1:
-                print("State 1")
                 self.leftHandToWall()
 
                 if self.slam.intersectWithMLine((self.position[0], self.position[1])):
                     if self.slam.isCloserToGoal((self.position[0], self.position[1]), self.goal):
                         state = 0
 
+            elif state == 2:
+                self.stopMotors()
 
 dave = PuckController()
 dave.run()
