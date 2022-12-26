@@ -5,7 +5,7 @@ from collections import deque
 from tempfile import NamedTemporaryFile
 from image_processing import *
 
-CLOSE_TO_WALL_THRESHOLD = 2
+CLOSE_TO_WALL_THRESHOLD = 1
 FILE_WRITE_PERIOD = 2
 
 class Maze:
@@ -83,6 +83,23 @@ class Maze:
         elif direction == "W":
             return (cell[0], cell[1] - offset)
 
+    """
+    Returns the cell in the given direction and offset from the given cell. 
+    The offset is a dictionary with the keys "parallel-axis" and "cross-axis".
+    "parallel-axis" is the offset in the positive (infront) direction of the given direction, 
+    and "cross-axis" is the offset in the perpendicular direction (left) to the given direction.
+    """
+    @staticmethod
+    def getCellInOffsetDirection(cell, direction, offset={"parallel-axis":0, "cross-axis":0}):
+        if direction == "N":
+            return (cell[0] - offset["parallel-axis"], cell[1] - offset["cross-axis"])
+        elif direction == "E":
+            return (cell[0] - offset["cross-axis"], cell[1] + offset["parallel-axis"])
+        elif direction == "S":
+            return (cell[0] + offset["parallel-axis"], cell[1] + offset["cross-axis"])
+        elif direction == "W":
+            return (cell[0] + offset["cross-axis"], cell[1] - offset["parallel-axis"])
+
     @staticmethod
     def getAdjacentCell(cell, direction):
         return Maze.getCellInDirection(cell, direction, 1)
@@ -143,22 +160,18 @@ class Maze:
 
         shutil.move(tempfile.name, self.filename)
 
-    def addDataToMaze(self, cell, state, offsets = {"N":0, "E":0, "S":0, "W":0}):
-        self.maze_map[cell] = state
-        for dy_north in range(1, offsets["N"] + 1):
-            for dx_east in range(1, offsets["E"] + 1):
-                self.maze_map[(cell[0] - dy_north, cell[1] + dx_east)] = state
-        for dy_south in range(1, offsets["S"] + 1):
-            for dx_west in range(1, offsets["W"] + 1):
-                self.maze_map[(cell[0] + dy_south, cell[1] - dx_west)] = state
+    def addDataToMaze(self, cell, state, fill_size = 0):
+        for p in range(-fill_size, fill_size + 1):
+            for c in range(-fill_size, fill_size + 1):
+                self.maze_map[(cell[0] + p, cell[1] + c)] = state
 
         if time() - self.last_save_time > FILE_WRITE_PERIOD:
             self.saveMaze()
             self.last_save_time = time()
 
-    def addDataIfUnknown(self, cell, state, offsets = {"N":0, "E":0, "S":0, "W":0}):
+    def addDataIfUnknown(self, cell, state, fill_size = 0):
         if self.maze_map[cell] == -1:
-            self.addDataToMaze(cell, state, offsets)
+            self.addDataToMaze(cell, state, fill_size)
 
     def isCloseToWall(self, cell):
         for dy in range(-CLOSE_TO_WALL_THRESHOLD, CLOSE_TO_WALL_THRESHOLD + 1):
@@ -239,7 +252,7 @@ class Maze:
         # return self.BFS(start, goal)
         return self.AStarSearch(start, goal)
 
-    def showMaze(self):
+    def showMaze(self, path, refresh_rate = 200):
         # Create an empty NumPy array
         image = np.zeros((self.rows, self.cols,3))
 
@@ -252,6 +265,10 @@ class Maze:
             else:
                 image[row-1][col-1] = (255,255,255)
 
+        if path:
+            for (row, col) in path:
+                image[row-1][col-1] = (0,0,255)
+
         # Show the image with the rectangles
         cv2.namedWindow("Resized_Window", cv2.WINDOW_NORMAL)
         
@@ -259,13 +276,13 @@ class Maze:
         cv2.resizeWindow("Resized_Window", self.rows*3, self.cols*3)
         
         # Displaying the image
-        cv2.imshow("Resized_Window", drawMaze(image))
+        cv2.imshow("Resized_Window", image)
 
         # Wait for a key press to close the window
-        cv2.waitKey(0)
+        cv2.waitKey(refresh_rate)
 
         # Destroy all windows
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
 
 
 
