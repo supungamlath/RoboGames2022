@@ -1,6 +1,7 @@
 __pycache__/
 .vscode/
 images/
+logs/
 saved_maze.csv
 tester.py
 log.txt
