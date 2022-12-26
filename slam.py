@@ -20,6 +20,7 @@ class SLAM:
         self.m_line = None
         self.last_intersection_distance = float("inf")
         self.last_proximity_reading_time = 0
+        self.should_replan = True
 
     # Function to detect whether object is in proximity to given sensor 
     def isObjectInProximity(self, sensor_name):
@@ -101,6 +102,53 @@ class SLAM:
             self.maze.addDataToMaze(right_cell, 0)
         else:
             self.maze.addDataIfUnknown(right_cell, 1)
+
+    def mapWallsLeftAndRight(self, cell, orientation):
+        if self.isObjectInProximity("left"):
+            left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":2})
+            self.maze.addDataIfUnknown(left_cell, 0)
+            self.should_replan = True
+
+        if self.isObjectInProximity("right"):
+            right_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":-2})
+            self.maze.addDataIfUnknown(right_cell, 0)
+            self.should_replan = True
+
+    def mapWallsAccessible(self, cell, orientation):
+        self.maze.addDataIfUnknown(cell, 1, fill_size = 1)
+
+        if self.isObjectInProximity("front-left"):
+            front_left_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":1})
+            self.maze.addDataIfUnknown(front_left_cell_1, 0)
+            self.should_replan = True
+            
+        if self.isObjectInProximity("left-corner"):
+            front_left_cell_2 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":2})
+            self.maze.addDataIfUnknown(front_left_cell_2, 0)
+            self.should_replan = True
+
+        if self.isObjectInProximity("front-right"):
+            front_right_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-1})
+            self.maze.addDataIfUnknown(front_right_cell_1, 0)
+            self.should_replan = True
+
+        if self.isObjectInProximity("right-corner"):
+            front_right_cell_2 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-2})
+            self.maze.addDataIfUnknown(front_right_cell_2, 0)
+            self.should_replan = True
+
+        self.mapWallsLeftAndRight(cell, orientation)
+
+    def mapWallsInaccessible(self, start_cell, orientation):
+        front_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":0})
+        front_left_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":1})
+        front_right_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":-1})
+        self.maze.addDataIfUnknown(front_cell, 0)
+        # self.maze.addDataIfUnknown(front_left_cell, 0)
+        # self.maze.addDataIfUnknown(front_right_cell, 0)
+        self.should_replan = True
+
+        self.mapWallsLeftAndRight(start_cell, orientation)
 
     def findMLine(self, point1, point2):
         x1, y1 = point1
