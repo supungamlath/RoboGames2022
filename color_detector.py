@@ -72,7 +72,7 @@ class ColorDetector:
     def testForRectangles(self):
         self.findRectangle()
 
-    def get_image_from_camera(self):
+    def getImageFromCamera(self):
         """
         Take an image from the camera device and prepare it for OpenCV processing:
         - convert data type,
@@ -86,7 +86,7 @@ class ColorDetector:
         return cv2.flip(img, 1)
 
     def findRectangle(self):
-        image = self.get_image_from_camera()
+        image = self.getImageFromCamera()
         
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
@@ -114,6 +114,36 @@ class ColorDetector:
             x,y,w,h = cv2.boundingRect(contour)
             cv2.rectangle(image, (x,y), (x+w, y+h), (0,255,0), 1)
 
+        return image
+
+    def findBlackLinesInGreenBg(self, image):
+        # Convert the image to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        edges = cv2.Canny(gray,50,150,apertureSize = 5)
+
+        # Find the horizontal lines in the image
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 15, minLineLength=20, maxLineGap=5)
+
+        # Initialize a list to store the distances between lines
+        line_distances = []
+        
+        # Iterate through the lines and calculate the distance between each pair of lines
+        # for i in range(len(lines) - 1):
+        #     x1, y1, x2, y2 = lines[i][0]
+        #     x3, y3, x4, y4 = lines[i+1][0]
+        #     distance = abs(y2 - y3)
+        #     line_distances.append(distance)
+        
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                if y1 == y2:
+                    cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 1)
+        
+        return image, line_distances
+
+    def showImage(self, image):
         # Show the image with the rectangles
         cv2.namedWindow("Resized_Window", cv2.WINDOW_NORMAL)
         
@@ -122,6 +152,5 @@ class ColorDetector:
         
         # Displaying the image
         cv2.imshow("Resized_Window", image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
+        cv2.waitKey(1)
+        # cv2.destroyAllWindows()
