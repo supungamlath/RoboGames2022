@@ -199,12 +199,6 @@ class PuckController:
         self.left_motor.setVelocity(0)
         self.right_motor.setVelocity(0)
 
-    def mapWhileMoving(self):
-        current_cell = self.getCurrentCell()
-        offsets = {"N": 1, "E": 1, "S": 1, "W": 1}
-        offsets[self.maze.getRightDir(self.orientation)] = 2
-        self.maze.addDataIfUnknown(current_cell, state=1, offsets=offsets)
-
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
 
@@ -270,6 +264,9 @@ class PuckController:
                 print("Waiting for data...")
 
             self.leftHandToWall()
+            # image = self.color_detector.getImageFromCamera()
+            # out, lines = self.color_detector.findBlackLinesInGreenBg(image)
+            # self.color_detector.showImage(out)
 
 dave = PuckController()
 dave.run()

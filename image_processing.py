@@ -78,6 +78,8 @@ def drawPath(image):
 
     return image
 
+
+
 def drawMaze(image):
     # image =  fillSingleWhitePixels(image)
     image = drawPath(image)

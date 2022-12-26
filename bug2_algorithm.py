@@ -330,9 +330,7 @@ class PuckController:
 
     def mapWhileMoving(self):
         current_cell = self.getCurrentCell()
-        offsets = {"N": 1, "E": 1, "S": 1, "W": 1}
-        offsets[self.maze.getRightDir(self.orientation)] = 2
-        self.maze.addDataIfUnknown(current_cell, state=1, offsets=offsets)
+        self.maze.addDataIfUnknown(current_cell, state=1, fill_size=1)
 
     def getCurrentCell(self):
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
