@@ -173,9 +173,12 @@ class Maze:
         if self.maze_map[cell] == -1:
             self.addDataToMaze(cell, state, fill_size)
 
-    def isCloseToWall(self, cell):
-        for dy in range(-CLOSE_TO_WALL_THRESHOLD, CLOSE_TO_WALL_THRESHOLD + 1):
-            for dx in range(-CLOSE_TO_WALL_THRESHOLD, CLOSE_TO_WALL_THRESHOLD + 1):
+    def isCellKnown(self, cell):
+        return self.maze_map[cell] != -1
+
+    def isCloseToWall(self, cell, threshold = CLOSE_TO_WALL_THRESHOLD):
+        for dy in range(-threshold, threshold + 1):
+            for dx in range(-threshold, threshold + 1):
                 if self.maze_map[(cell[0] + dy, cell[1] + dx)] == 0:
                     return True
         return False
@@ -184,6 +187,12 @@ class Maze:
     def getManhattanDistance(self, a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
     
+    def getHeuristic(self, cell, goal):
+        manhattan_d = self.getManhattanDistance(cell, goal)
+        if self.isCloseToWall(cell, threshold = CLOSE_TO_WALL_THRESHOLD + 1):
+            return manhattan_d + 100
+        return manhattan_d 
+
     # The A* search algorithm
     def AStarSearch(self, start, goal):
         # The cost of moving from one cell to an adjacent cell is 1
@@ -231,7 +240,7 @@ class Maze:
                 # update the cost and add the cell to the heap
                 if (next_row, next_col) not in cost_so_far or new_cost < cost_so_far[(next_row, next_col)]:
                     cost_so_far[(next_row, next_col)] = new_cost
-                    priority = new_cost + self.getManhattanDistance((next_row, next_col), goal)
+                    priority = new_cost + self.getHeuristic((next_row, next_col), goal)
                     heappush(heap, (priority, (next_row, next_col)))
                     came_from[(next_row, next_col)] = current
         # If the goal was not found, return an empty path
@@ -252,7 +261,7 @@ class Maze:
         # return self.BFS(start, goal)
         return self.AStarSearch(start, goal)
 
-    def showMaze(self, path, refresh_rate = 200):
+    def showMaze(self, path, current_cell, refresh_rate = 200):
         # Create an empty NumPy array
         image = np.zeros((self.rows, self.cols,3))
 
@@ -268,6 +277,9 @@ class Maze:
         if path:
             for (row, col) in path:
                 image[row-1][col-1] = (0,0,255)
+
+        if current_cell:
+            image[current_cell[0]-1][current_cell[1]-1] = (255,0,0)
 
         # Show the image with the rectangles
         cv2.namedWindow("Resized_Window", cv2.WINDOW_NORMAL)
