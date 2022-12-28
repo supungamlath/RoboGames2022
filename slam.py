@@ -1,12 +1,15 @@
+import csv
 import logging, math
+from pprint import pprint
+from model import Model
 
-PROXIMITY_THRESHOLD = 100
+HIT_PROXIMITY_THRESHOLD = 800
+CLOSE_PROXIMITY_THRESHOLD = 300
+MIN_PROXIMITY_READING = 150
 CAMERA_TEST_PIXEL_ROW = 28
-CELL_OFFSET = 1 # Wall data should be offset by this constant to account for the robot's diameter 
-WANDERING_TIMEOUT = 5 # Seconds
-MLINE_WIDTH = 0.01 # Meters
-SAME_INTERSECTION_THRESHOLD = 0.07 # Meters
+CELL_OFFSET = 0 # Wall data should be offset by this constant to account for the robot's diameter 
 GOAL_REACHED_THRESHOLD = 0.1
+SQUARE_LENGTH = 0.02
 
 # Class for Simultaneous Localization and Mapping
 class SLAM:
@@ -15,36 +18,52 @@ class SLAM:
         self.camera = camera
         self.distance_sensors = distance_sensors
         self.color_detector = color_detector
-        self.maze_coord = None
-        self.orientation = None
-        self.m_line = None
-        self.last_intersection_distance = float("inf")
-        self.last_proximity_reading_time = 0
         self.should_replan = True
+        self.model = Model()
 
-    # Function to detect whether object is in proximity to given sensor 
-    def isObjectInProximity(self, sensor_name):
-        logging.debug(sensor_name + " distance - " + str(self.distance_sensors[sensor_name].getValue()))
-        return self.distance_sensors[sensor_name].getValue() > PROXIMITY_THRESHOLD
+    def logDistances(self):
+        readings = {}
+        for sensor_name in self.distance_sensors:
+            reading = self.distance_sensors[sensor_name].getValue()
+            logging.debug(sensor_name + " distance - " + str(reading))
+            readings[sensor_name] = reading
+        return readings
 
-    def getWallFromProximity(self):
-        left_distance = self.distance_sensors["left"].getValue() 
-        right_distance = self.distance_sensors["right"].getValue()
-        front_left_distance = self.distance_sensors["front-left"].getValue() 
-        front_right_distance = self.distance_sensors["front-right"].getValue()
-        left_corner_distance = self.distance_sensors["left-corner"].getValue() 
-        right_corner_distance = self.distance_sensors["right-corner"].getValue()
-        logging.debug("Left distance - " + str(left_distance))
-        logging.debug("Right distance - " + str(right_distance))
-        logging.debug("Front left distance - " + str(front_left_distance))
-        logging.debug("Front right distance - " + str(front_right_distance))
-        logging.debug("Left corner distance - " + str(left_corner_distance))
-        logging.debug("Right corner distance - " + str(right_corner_distance))
-        
-        is_front_blocked = (front_left_distance > PROXIMITY_THRESHOLD) or (front_right_distance > PROXIMITY_THRESHOLD) or (left_corner_distance > PROXIMITY_THRESHOLD) or (right_corner_distance > PROXIMITY_THRESHOLD)
-        is_left_blocked = left_distance > PROXIMITY_THRESHOLD
-        is_right_blocked = right_distance > PROXIMITY_THRESHOLD
-        return is_front_blocked, is_left_blocked, is_right_blocked
+    """Returns `True` if sensor reading of the given sensor is greater than `HIT_PROXIMITY_THRESHOLD`""" 
+    def isObjectInHitProximity(self, sensor_name):
+        return HIT_PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
+
+    """Returns `True` if sensor reading of the given sensor is greater than `CLOSE_PROXIMITY_THRESHOLD`""" 
+    def isObjectInCloseProximity(self, sensor_name):
+        return CLOSE_PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
+    
+    """Returns `True` if sensor reading of the given sensor is in between `MIN_PROXIMITY_READING` and `CLOSE_PROXIMITY_THRESHOLD`""" 
+    def isObjectInFarProximity(self, sensor_name):
+        return MIN_PROXIMITY_READING < self.distance_sensors[sensor_name].getValue() < CLOSE_PROXIMITY_THRESHOLD
+
+    def getCalibDistanceInCells(self, sensor_name):
+        r = self.distance_sensors[sensor_name].getValue()
+        if r < MIN_PROXIMITY_READING:
+            return None
+        distance = (-5e-11)*r**3 + (1e-07)*r**2 - 0.0001*r + 0.0933
+        logging.debug(sensor_name + " distance - " + str(distance))
+        return round(distance / SQUARE_LENGTH)
+
+    def getCalibDistanceInAxes(self, distance, sensor_name):
+        if sensor_name == "front-left" or sensor_name == "front-right":
+            sensor_offset = 0.03162277660168379
+            c = distance / sensor_offset
+            return round(c * 0.03), round(c * 0.01)
+
+        if sensor_name == "left-corner" or sensor_name == "right-corner":
+            sensor_offset = 0.03330165161069343
+            c = distance / sensor_offset
+            return round(c * 0.022), round(c * 0.025)
+
+        if sensor_name == "rear-left" or sensor_name == "rear-right":
+            sensor_offset = 0.03354101966249685
+            c = distance / sensor_offset
+            return round(c * 0.03), round(c * 0.015)
 
     def setWallFromCamera(self, maze_coord, facing_dir):
         # valid_colors = ["black", "green", "teal", "lime", "olive"]
@@ -67,128 +86,151 @@ class SLAM:
         updatable_cell = self.maze.getCellInDirection(cell, direction, CELL_OFFSET)
         self.maze.addDataToMaze(updatable_cell, 0)
 
-    def saveImage(self, is_not_facing_wall):
-        self.camera.saveImage("images\\" + str(self.maze_coord) + self.orientation + str(is_not_facing_wall) + ".png", 100)
-
-    def mapWalls(self, maze_coord, orientation):
-        self.maze_coord = maze_coord
-        self.orientation = orientation
-
-        is_front_blocked, is_left_blocked, is_right_blocked = self.getWallFromProximity()
-      
-        front_cell = self.maze.getCellInDirection(self.maze_coord, self.orientation, CELL_OFFSET)
-        if is_front_blocked: 
-            logging.debug(str(self.maze_coord) + " " + self.orientation + " - Front blocked")
-            print(self.maze_coord, "Front blocked")
-            self.maze.addDataToMaze(front_cell, 0)
-        else:
-            self.maze.addDataIfUnknown(front_cell, 1)
-
-        left_dir = self.maze.getLeftDir(self.orientation)
-        right_dir = self.maze.getOppositeDir(left_dir)
-
-        left_cell = self.maze.getCellInDirection(self.maze_coord, left_dir, CELL_OFFSET)
-        if is_left_blocked: 
-            logging.debug(str(self.maze_coord) + " - " + left_dir + " blocked")
-            print(self.maze_coord, "Left blocked")
-            self.maze.addDataToMaze(left_cell, 0)
-        else:
-            self.maze.addDataIfUnknown(left_cell, 1)
-
-        right_cell = self.maze.getCellInDirection(self.maze_coord, right_dir, CELL_OFFSET)
-        if is_right_blocked: 
-            logging.debug(str(self.maze_coord) + " - " + right_dir + " blocked")
-            print(self.maze_coord, "Right blocked")
-            self.maze.addDataToMaze(right_cell, 0)
-        else:
-            self.maze.addDataIfUnknown(right_cell, 1)
+    def saveImage(self, maze_coord, orientation, is_not_facing_wall):
+        self.camera.saveImage("images\\" + str(maze_coord) + self.orientation + str(is_not_facing_wall) + ".png", 100)
 
     def mapWallsLeftAndRight(self, cell, orientation):
-        if self.isObjectInProximity("left"):
+        if self.isObjectInCloseProximity("left"):
             left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":2})
             self.maze.addDataIfUnknown(left_cell, 0)
             self.should_replan = True
+        
+        elif self.isObjectInFarProximity("left"):
+            left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":3})
+            self.maze.addDataIfUnknown(left_cell, 0)
+            self.should_replan = True
 
-        if self.isObjectInProximity("right"):
+        if self.isObjectInCloseProximity("right"):
             right_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":-2})
             self.maze.addDataIfUnknown(right_cell, 0)
             self.should_replan = True
 
-    def mapWallsAccessible(self, cell, orientation):
-        self.maze.addDataIfUnknown(cell, 1, fill_size = 1)
+        elif self.isObjectInFarProximity("right"):
+            right_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":0, "cross-axis":-3})
+            self.maze.addDataIfUnknown(right_cell, 0)
+            self.should_replan = True
 
-        if self.isObjectInProximity("front-left"):
-            front_left_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":1})
-            self.maze.addDataIfUnknown(front_left_cell_1, 0)
+        if self.isObjectInHitProximity("left-corner"):
+            left_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":1, "cross-axis":1})
+            self.maze.addDataIfUnknown(left_corner_cell, 0)
+            self.should_replan = True
+
+        elif self.isObjectInCloseProximity("left-corner"):
+            left_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":2})
+            self.maze.addDataIfUnknown(left_corner_cell, 0)
+            self.should_replan = True
+
+        elif self.isObjectInFarProximity("left-corner"):
+            left_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":3, "cross-axis":3})
+            self.maze.addDataIfUnknown(left_corner_cell, 0)
+            self.should_replan = True
+
+        if self.isObjectInHitProximity("right-corner"):
+            right_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":1, "cross-axis":-1})
+            self.maze.addDataIfUnknown(right_corner_cell, 0)
+            self.should_replan = True
+
+        elif self.isObjectInCloseProximity("right-corner"):
+            right_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-2})
+            self.maze.addDataIfUnknown(right_corner_cell, 0)
+            self.should_replan = True
+
+        elif self.isObjectInFarProximity("right-corner"):
+            right_corner_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":3, "cross-axis":-3})
+            self.maze.addDataIfUnknown(right_corner_cell, 0)
+            self.should_replan = True
+
+    def mapWallsAccessible(self, cell, orientation):
+        self.maze.addDataIfUnknown(cell, CELL_OFFSET, fill_size = 1)
+
+        if self.isObjectInHitProximity("front-left"):
+            front_left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":1})
+            self.maze.addDataIfUnknown(front_left_cell, 0)
+            self.should_replan = True
+
+        elif self.isObjectInCloseProximity("front-left"):
+            front_left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":3, "cross-axis":1})
+            self.maze.addDataIfUnknown(front_left_cell, 0)
             self.should_replan = True
             
-        if self.isObjectInProximity("left-corner"):
-            front_left_cell_2 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":2})
-            self.maze.addDataIfUnknown(front_left_cell_2, 0)
-            self.should_replan = True
-
-        if self.isObjectInProximity("front-right"):
+        if self.isObjectInHitProximity("front-right"):
             front_right_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-1})
             self.maze.addDataIfUnknown(front_right_cell_1, 0)
             self.should_replan = True
 
-        if self.isObjectInProximity("right-corner"):
-            front_right_cell_2 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-2})
-            self.maze.addDataIfUnknown(front_right_cell_2, 0)
+        elif self.isObjectInCloseProximity("front-right"):
+            front_right_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":3, "cross-axis":-1})
+            self.maze.addDataIfUnknown(front_right_cell_1, 0)
             self.should_replan = True
 
         self.mapWallsLeftAndRight(cell, orientation)
 
-    def mapWallsInaccessible(self, start_cell, orientation):
-        front_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":0})
-        front_left_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":1})
-        front_right_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":2, "cross-axis":-1})
-        self.maze.addDataIfUnknown(front_cell, 0)
-        # self.maze.addDataIfUnknown(front_left_cell, 0)
-        # self.maze.addDataIfUnknown(front_right_cell, 0)
-        self.should_replan = True
+    def mapWallsInaccessible(self, cell, orientation):
+        # front_cell = self.maze.getCellInOffsetDirection(start_cell, orientation, {"parallel-axis":3, "cross-axis":0})
+        # self.maze.addDataIfUnknown(front_cell, 0)
+        # self.should_replan = True
 
-        self.mapWallsLeftAndRight(start_cell, orientation)
+        if self.isObjectInHitProximity("front-left"):
+            front_left_cell = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":1})
+            self.maze.addDataIfUnknown(front_left_cell, 0)
+            self.should_replan = True
 
-    def findMLine(self, point1, point2):
-        x1, y1 = point1
-        x2, y2 = point2
-        
-        # Calculate the slope of the line
-        slope = (y2 - y1) / (x2 - x1)
-        
-        # Calculate the y-intercept of the line
-        y_intercept = y1 - slope * x1
-        
-        return slope, y_intercept
+        if self.isObjectInHitProximity("front-right"):
+            front_right_cell_1 = self.maze.getCellInOffsetDirection(cell, orientation, {"parallel-axis":2, "cross-axis":-1})
+            self.maze.addDataIfUnknown(front_right_cell_1, 0)
+            self.should_replan = True
 
-    def setMLine(self, start_point, goal_point):
-        if not self.m_line:
-            self.m_line = self.findMLine(start_point, goal_point)
-        return self.m_line
+        self.mapWallsLeftAndRight(cell, orientation)
 
-    def clearMLine(self):
-        self.m_line = None
-        self.last_intersection_distance = float("inf")
+    def setCellAccessible(self, cell):
+        self.maze.addDataIfUnknown(cell, 1, fill_size = CELL_OFFSET)
 
-    def intersectWithMLine(self, position, tolerance = MLINE_WIDTH / 2):
-        x, y = position
-        m, c = self.m_line
-        distance = abs(y - m*x - c) / math.sqrt(m**2 + 1)
-        return distance <= tolerance
+    def mapWallsManually(self, cell, orientation):
+        with open("training_dataset.csv", "a+", newline="") as file:
+            writer = csv.DictWriter(file, fieldnames = list(self.distance_sensors.keys()) + ["blocked_cells"])
+            row = self.logDistances()
+            pprint(row)
 
-    def isCloserToGoal(self, position, goal):
-        distance = self.getDistanceBetweenPoints(position, goal)
-        if self.last_intersection_distance - distance > SAME_INTERSECTION_THRESHOLD:
-            self.last_intersection_distance = distance
-            return True
-        return False
+            relative_blocked_cells = []
+            if max(row.values()) >= MIN_PROXIMITY_READING:
+                self.should_replan = True
+                predicted_cells = self.model.predict(row)
+                print("Predicted cells: ", predicted_cells)
+                inp = input("Enter relative positions of blocked cells (comma separated). \nEnter 'a' to accept predictions. \nEnter 'n' for next cell.\n")
+                while True:
+                    if inp == 'n':
+                        break
+                    elif inp == 'a':
+                        relative_blocked_cells += predicted_cells
+                    else:
+                        try:
+                            inp = inp.split(',')
+                            relative_blocked_cells.append((int(inp[0]), int(inp[1])))
+                        except:
+                            print("Invalid input")
+                    inp = input()
 
-    def getAngleToGoal(self, start, goal):
-        dy = goal[1] - start[1]
-        dx = goal[0] - start[0]
-        angle = math.atan2(dy, dx)
-        return (2*math.pi - angle) % (2*math.pi)
+                for b_cell in relative_blocked_cells:
+                    offsets = {"parallel-axis":b_cell[0], "cross-axis":b_cell[1]}
+                    off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
+                    self.maze.addDataIfUnknown(off_cell, 0)
+
+            row["blocked_cells"] = relative_blocked_cells
+            writer.writerow(row)
+            self.model.trainModel()
+            self.model.testModel()
+
+    def mapWallsAutomatically(self, cell, orientation):
+        row = self.logDistances()
+        predicted_cells = self.model.predict(row)
+        logging.debug("Predicted cells: " + str(predicted_cells))
+
+        for b_cell in predicted_cells:
+            self.should_replan = True
+            offsets = {"parallel-axis":b_cell[0], "cross-axis":b_cell[1]}
+            off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
+            self.maze.addDataIfUnknown(off_cell, 0)
+
 
     def getDistanceBetweenPoints(self, start, goal):
         dy = goal[1] - start[1]
@@ -199,9 +241,3 @@ class SLAM:
         distance = self.getDistanceBetweenPoints(position, goal)
         print("Distance to goal : ", distance)
         return distance <= GOAL_REACHED_THRESHOLD
-
-    def setLastProximityReadingTime(self, time):
-        self.last_proximity_reading_time = time
-
-    def isWandering(self, time):
-        return time - self.last_proximity_reading_time > WANDERING_TIMEOUT
