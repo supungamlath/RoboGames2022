@@ -8,19 +8,15 @@ from color_detector import ColorDetector
 from slam import SLAM
 
 logging.basicConfig(filename="logs/log-" + str(time.time()) + ".txt", level=logging.DEBUG, format="%(asctime)s : %(levelname)s : %(message)s")
+logging.logProcesses = 0
+logging.logThreads = 0
 
 ### Robot Constants ###
-# MOTOR_MAX_SPEED = 6.28
-MOTOR_MAX_SPEED = 3.0
-# SPEED = 5.0
-SPEED = 3.0
-# TURN_SPEED = 1.5
-TURN_SPEED = 1.0
-SEARCH_SPEED = 6.28
+SPEED = 4.0 # Max - 6.28
+TURN_SPEED = 1.5
 CAPACITY = 10000
-TURN_TIMEOUT = 3
+TURN_TIMEOUT = 3.0
 MOVEMENT_TIMEOUT = 1.5
-PHOTO_TIMEOUT = 0.2
 
 ### Maze Constants ###
 # Maze is 4 m by 4 m square with four 0.5 m extensions
@@ -34,9 +30,8 @@ HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
 
 ### PID Constants ###
-PID_P = 2.5
-PID_D = 0.0
-
+# PID_P = 2.5
+PID_P = 10.0
 
 class PuckController:
     def __init__(self):
@@ -137,7 +132,6 @@ class PuckController:
     def turn(self, direction):
         logging.info("Turning " + direction)
         start_time = self.time
-        start_cell = self.getCurrentCell()
         start_orientation = self.orientation
         if direction == "right":
             turn_dir = 1
@@ -149,14 +143,6 @@ class PuckController:
         elif direction == "left":
             turn_dir = -1
             expected_bearing = self.maze.directionToAngle[self.maze.getLeftDir(start_orientation)]
-
-        # TODO - Fix specified angle rotation 
-        else:
-            expected_bearing = direction
-            if expected_bearing < self.position[2]:
-                turn_dir = -1
-            else:
-                turn_dir = 1
 
         def shouldTurnCW(init_orien, expected_bearing):
             turned_angle = self.position[2]
@@ -188,12 +174,6 @@ class PuckController:
             if self.time - start_time > TURN_TIMEOUT:
                 print("Turn timed out")
                 self.stopMotors()
-                # left_dir = self.maze.getLeftDir(start_orientation)
-                # if direction == "left":
-                #     self.slam.setPathBlocked(start_cell, left_dir)
-                # elif direction == "right":
-                #     right_dir = self.maze.getOppositeDir(left_dir)
-                #     self.slam.setPathBlocked(start_cell, right_dir)
                 break
         self.stopMotors()
 
@@ -220,7 +200,7 @@ class PuckController:
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 logging.debug("Movement timeout: Current time - " + str(self.time) + " Start time - " + str(start_time))
                 return True
-            elif self.slam.isObjectInProximity("front-left") or self.slam.isObjectInProximity("front-right"):
+            elif self.slam.isObjectInCloseProximity("front-left") or self.slam.isObjectInCloseProximity("front-right"):
                 return True
             return False
 
@@ -244,57 +224,7 @@ class PuckController:
             self.updateRobotData()
             if shouldStop(start_time):
                 self.stopMotors()
-                return False
-        return True
-
-    def goBackward(self, target_cell):
-        logging.info("Going backward")
-        start_time = self.time
-        start_cell = self.getCurrentCell()
-        start_orientation = self.orientation
-        ideal_position = self.mazeCellToWorldCoords(target_cell)
-
-        stop_target = ideal_position[self.robot_x_axis]
-        centerline = ideal_position[self.robot_y_axis]
-
-        def shouldMove(init_orien, target):
-            if init_orien == "N":
-                return self.position[0] > target
-            elif init_orien == "S":
-                return self.position[0] < target
-            elif init_orien == "E":
-                return self.position[1] < target
-            elif init_orien == "W":
-                return self.position[1] > target
-
-        def getSpeedChange(init_orien, target):
-            if init_orien == "N":
-                error = self.position[1] - target
-            elif init_orien == "S":
-                error = target - self.position[1]
-            elif init_orien == "E":
-                error = self.position[0] - target 
-            elif init_orien == "W":
-                error = target - self.position[0]
-            return error * PID_P
-
-        last_error = 0
-        while shouldMove(start_orientation, stop_target):
-            error = getSpeedChange(start_orientation, centerline)
-            # change = error * PID_P + (error - last_error) * PID_D
-            change = error * PID_P 
-            last_error = error
-
-            self.left_motor.setVelocity(-SPEED - change)
-            self.right_motor.setVelocity(-SPEED + change)
-            self.updateRobotData()
-            if self.time - start_time > MOVEMENT_TIMEOUT:
-                logging.debug("Moving backward - Current time " + str(self.time) + " Start time " + str(start_time))
-                self.stopMotors()
-                self.slam.setCellDirectionBlocked(start_cell, self.maze.getOppositeDir(start_orientation))
-                return False
-
-        # self.stopMotors()
+                return self.getCurrentCell() == target_cell
         return True
 
     def stopMotors(self):
@@ -357,53 +287,6 @@ class PuckController:
                 self.turn("left")
                 return self.goFoward(next_cell)
 
-    def moveToNextCellWithReverse(self, current_cell, next_cell):
-        logging.info("Moving from " + str(current_cell) + " to " + str(next_cell))
-        if self.orientation == "N":
-            if next_cell[0] < current_cell[0]:
-                return self.goFoward(next_cell)
-            elif next_cell[0] > current_cell[0]:
-                return self.goBackward(next_cell)
-            elif next_cell[1] > current_cell[1]:
-                self.turn("right")
-                return self.goFoward(next_cell)
-            elif next_cell[1] < current_cell[1]:
-                self.turn("left")
-                return self.goFoward(next_cell)
-        elif self.orientation == "E":
-            if next_cell[1] > current_cell[1]:
-                return self.goFoward(next_cell)
-            elif next_cell[1] < current_cell[1]:
-                return self.goBackward(next_cell)
-            elif next_cell[0] > current_cell[0]:
-                self.turn("right")
-                return self.goFoward(next_cell)
-            elif next_cell[0] < current_cell[0]:
-                self.turn("left")
-                return self.goFoward(next_cell)
-        elif self.orientation == "S":
-            if next_cell[0] > current_cell[0]:
-                return self.goFoward(next_cell)
-            elif next_cell[0] < current_cell[0]:
-                return self.goBackward(next_cell)
-            elif next_cell[1] < current_cell[1]:
-                self.turn("right")
-                return self.goFoward(next_cell)
-            elif next_cell[1] > current_cell[1]:
-                self.turn("left")
-                return self.goFoward(next_cell)
-        elif self.orientation == "W":
-            if next_cell[1] < current_cell[1]:
-                return self.goFoward(next_cell)
-            elif next_cell[1] > current_cell[1]:
-                return self.goBackward(next_cell)
-            elif next_cell[0] < current_cell[0]:
-                self.turn("right")
-                return self.goFoward(next_cell)
-            elif next_cell[0] > current_cell[0]:
-                self.turn("left")
-                return self.goFoward(next_cell)
-
     ### Maze Functions ###
     @staticmethod
     def worldCoordToMazeCell(world_coord):
@@ -430,36 +313,6 @@ class PuckController:
             x = ((GRID_SIZE // 2 - maze_cell[1]) * SQUARE_LENGTH) + SQUARE_LENGTH
             y = ((GRID_SIZE // 2 - maze_cell[0]) * SQUARE_LENGTH) + SQUARE_LENGTH
         return (y, x)
-
-    def turnAndMap(self, maze_coord):
-        directions = ["N", "E", "S", "W"]
-        cell_info = self.maze.maze_map[maze_coord]
-        walls = [cell_info[d] for d in directions]
-        k = directions.index(self.orientation)
-
-        right_turns = 0
-        for i in range(4):
-            if walls[k] == -1:
-                right_turns = i
-            k = (k + 1) % 4
-        left_turns = 0
-        for i in range(4):
-            if walls[k] == -1:
-                left_turns = i
-            k = (k - 1) % 4
-
-        self.slam.mapWalls(maze_coord, self.orientation)
-        if right_turns > left_turns:
-            for i in range(left_turns):
-                self.turn("left")
-                self.slam.mapWalls(maze_coord, self.orientation)
-        else:
-            for i in range(right_turns):
-                self.turn("right")
-                self.slam.mapWalls(maze_coord, self.orientation)
-
-    def mapWithoutTurning(self, maze_coord):
-        self.slam.mapWalls(maze_coord, self.orientation)
 
     def setPath(self, current_cell):
         def getShortestPath(target_locs, return_loc):
@@ -494,7 +347,7 @@ class PuckController:
         #     self.path = self.maze.getPath(current_cell, (1,1))
         #     logging.debug("Path selection - Targetless (Learning Path Only)")
 
-        goal = self.worldCoordToMazeCell(self.money_drops[0])
+        goal = self.worldCoordToMazeCell(self.exchanger_locs[1])
         self.path = self.maze.getPath(current_cell, goal)
 
     def getCurrentCell(self):
@@ -504,7 +357,6 @@ class PuckController:
     def run(self):
         logging.info("Starting Robot")
         state = 2
-        last_cell = None
 
         while True:
             # Robot behavior is modeled as a state machine
@@ -515,13 +367,11 @@ class PuckController:
             if state == 1:
                 self.stopMotors()
                 self.maze.saveMaze()
-                self.maze.showMaze(self.path)
+                self.maze.showMaze(self.path, self.getCurrentCell())
+
             # State 2: Find and move to goal
             elif state == 2:
-                if last_cell and last_cell != self.getCurrentCell():
-                    current_cell = last_cell
-                else:
-                    current_cell = self.getCurrentCell()
+                current_cell = self.getCurrentCell()
                 
                 if self.path is None:
                     state = 1
@@ -531,19 +381,23 @@ class PuckController:
                     self.slam.should_replan = False
 
                 next_cell = self.path[current_cell]
-                print("Trying to move from " + str(current_cell) + " to " + str(next_cell))
+                # print("Trying to move from " + str(current_cell) + " to " + str(next_cell))
 
-                if self.moveToNextCellWithoutReverse(current_cell, next_cell):
-                    print("Moved to cell " + str(next_cell))
-                    self.slam.mapWallsAccessible(next_cell, self.orientation)
-                    last_cell = next_cell
+                was_move_successful = self.moveToNextCellWithoutReverse(current_cell, next_cell)
+                current_cell = self.getCurrentCell()
+                logging.debug("Current cell - " + str(current_cell))
+                if was_move_successful:
+                    logging.info("Moved to cell " + str(next_cell))
                 else:
-                    print("Cannot move to cell " + str(next_cell))
-                    self.slam.mapWallsInaccessible(current_cell, self.orientation)
-                    self.setPath(current_cell)
-                    last_cell = current_cell
+                    logging.info("Cannot move to cell " + str(next_cell))
 
-                self.maze.showMaze(self.path)
+                if not self.maze.isCellKnown(current_cell):
+                    self.slam.mapWallsAutomatically(current_cell, self.orientation)
+
+                if was_move_successful:
+                    self.slam.setCellAccessible(current_cell)
+
+                self.maze.showMaze(self.path, current_cell)
 
 dave = PuckController()
 dave.run()
