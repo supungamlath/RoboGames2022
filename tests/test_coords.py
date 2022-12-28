@@ -42,6 +42,12 @@ def test_world_to_maze():
     maze_coord = worldCoordToMazeCell(world_coord)
     assert maze_coord == (10, 0)
 
+    GRID_SIZE = 222
+    SQUARE_LENGTH = 0.02
+    world_coord = (-2.01, -0.01)
+    maze_coord = worldCoordToMazeCell(world_coord)
+    print(maze_coord)
+
 def test_maze_to_world():
     global GRID_SIZE, SQUARE_LENGTH
     GRID_SIZE = 222
@@ -49,7 +55,10 @@ def test_maze_to_world():
     maze_cell = (207, 114)
     world_coord = mazeCellToWorldCoords(maze_cell)
     assert pytest.approx(world_coord, 0.00000001) == (-1.91, -0.05)
-    maze_cell = (210, 114)
+ 
+    GRID_SIZE = 222
+    SQUARE_LENGTH = 0.02   
+    maze_cell = (212, 112)
     world_coord = mazeCellToWorldCoords(maze_cell)
     print(world_coord)
 

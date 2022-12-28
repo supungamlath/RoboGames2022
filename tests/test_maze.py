@@ -7,7 +7,7 @@ GRID_SIZE = 222
 def test_show_maze():
     m = Maze(GRID_SIZE, GRID_SIZE)
     # m.loadMaze()
-    # m.showMaze(None, refresh_rate = 0)
+    # m.showMaze(None, None, refresh_rate = 0)
 
 def test_get_cell_in_offset_direction():
     m = Maze(GRID_SIZE, GRID_SIZE)
