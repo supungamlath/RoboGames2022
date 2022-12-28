@@ -336,19 +336,19 @@ class PuckController:
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
 
     def leftHandToWall(self):
-        if self.slam.isObjectInProximity("front-left"):
+        if self.slam.isObjectInCloseProximity("front-left"):
             # print("Turn right in place")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(-SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
 
-        elif self.slam.isObjectInProximity("left-corner"):
+        elif self.slam.isObjectInCloseProximity("left-corner"):
             # print("Came too close, drive right")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(-SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
 
-        elif self.slam.isObjectInProximity("left"):
+        elif self.slam.isObjectInCloseProximity("left"):
             # print("Drive foward")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
@@ -364,17 +364,17 @@ class PuckController:
             self.right_motor.setVelocity(SEARCH_SPEED)
 
     def rightHandToWall(self): 
-        if self.slam.isObjectInProximity("front-right"):
+        if self.slam.isObjectInCloseProximity("front-right"):
             self.left_motor.setVelocity(-SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
         
-        elif self.slam.isObjectInProximity("right-corner"):
+        elif self.slam.isObjectInCloseProximity("right-corner"):
             self.left_motor.setVelocity(-SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
         
-        elif self.slam.isObjectInProximity("right"):
+        elif self.slam.isObjectInCloseProximity("right"):
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
@@ -413,7 +413,7 @@ class PuckController:
                 if self.position[2].angle_between(angle_to_goal) > Angle(5, "degrees"):
                     self.turn(angle_to_goal)
 
-                if not self.slam.isObjectInProximity("front-left") and not self.slam.isObjectInProximity("front-right"):
+                if not self.slam.isObjectInCloseProximity("front-left") and not self.slam.isObjectInCloseProximity("front-right"):
                     self.left_motor.setVelocity(SEARCH_SPEED)
                     self.right_motor.setVelocity(SEARCH_SPEED)       
                 else:

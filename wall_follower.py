@@ -1,3 +1,4 @@
+import csv
 import sys
 
 sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
@@ -203,19 +204,19 @@ class PuckController:
         return self.worldCoordToMazeCell((self.position[0], self.position[1]))
 
     def leftHandToWall(self):
-        if self.slam.isObjectInProximity("front-left"):
+        if self.slam.isObjectInCloseProximity("front-left"):
             # print("Turn right in place")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(-SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
 
-        elif self.slam.isObjectInProximity("left-corner"):
+        elif self.slam.isObjectInCloseProximity("left-corner"):
             # print("Came too close, drive right")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(-SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
 
-        elif self.slam.isObjectInProximity("left"):
+        elif self.slam.isObjectInCloseProximity("left"):
             # print("Drive foward")
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
@@ -231,17 +232,17 @@ class PuckController:
             
 
     def rightHandToWall(self): 
-        if self.slam.isObjectInProximity("front-right"):
+        if self.slam.isObjectInCloseProximity("front-right"):
             self.left_motor.setVelocity(-SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
         
-        elif self.slam.isObjectInProximity("right-corner"):
+        elif self.slam.isObjectInCloseProximity("right-corner"):
             self.left_motor.setVelocity(-SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
         
-        elif self.slam.isObjectInProximity("right"):
+        elif self.slam.isObjectInCloseProximity("right"):
             self.left_motor.setVelocity(SEARCH_SPEED)
             self.right_motor.setVelocity(SEARCH_SPEED)
             self.slam.setLastProximityReadingTime(self.time)
@@ -257,16 +258,26 @@ class PuckController:
     ### Main function ###
     def run(self):
         logging.info("Starting Robot")
-
+        last_distance = 0
         while True:
             # Robot behavior is modeled as a state machine
             while not self.updateRobotData():
                 print("Waiting for data...")
 
-            self.leftHandToWall()
+            # self.leftHandToWall()
             # image = self.color_detector.getImageFromCamera()
             # out, lines = self.color_detector.findBlackLinesInGreenBg(image)
             # self.color_detector.showImage(out)
+            distance = abs(0.25 - self.position[1])
+            if abs(distance - last_distance) > 0.0005:
+                last_distance = distance
+                reading = self.distance_sensors["left"].getValue()
+                with open("distance_sensor_left.csv", "a+", newline="") as file:
+                    writer = csv.DictWriter(file, fieldnames=["Distance", "Reading"])
+                    row = {"Distance":distance, "Reading":reading}
+                    print(row)
+                    writer.writerow(row)
+
 
 dave = PuckController()
 dave.run()
