@@ -5,11 +5,16 @@ from collections import deque
 from tempfile import NamedTemporaryFile
 from image_processing import *
 
+### Maze Constants ###
+# Maze is 4 m by 4 m square with four 0.5 m extensions
+GRID_SIZE = 222
+SQUARE_LENGTH = 0.02
+
 CLOSE_TO_WALL_THRESHOLD = 1
 FILE_WRITE_PERIOD = 2
 
 class Maze:
-    def __init__(self, rows, cols, filename="saved_maze.csv"):
+    def __init__(self, rows=GRID_SIZE, cols=GRID_SIZE, filename="saved_maze.csv"):
         self.rows = rows
         self.cols = cols
         self.maze_map = {}
@@ -17,7 +22,6 @@ class Maze:
         self.path = {}
         self.filename = filename
         self.fields = ["cell", "state"]
-        self.directionToAngle = {"N": 0, "E": math.pi/2, "S": math.pi, "W": 3*math.pi/2}
         self.last_save_time = time()
     
     def resetMaze(self):
@@ -104,6 +108,33 @@ class Maze:
     def getAdjacentCell(cell, direction):
         return Maze.getCellInDirection(cell, direction, 1)
 
+        ### Maze Functions ###
+    @staticmethod
+    def worldCoordToMazeCell(world_coord):
+        # Note that the world and maze have same x and y axes but different to usual Cartesian system
+        # world_coord[0] is x, world_coord[1] is y
+        # x is vertical and y is horizontal
+        if GRID_SIZE % 2 == 0:
+            x = (GRID_SIZE // 2) - int(world_coord[0] // SQUARE_LENGTH)
+            y = (GRID_SIZE // 2) - int(world_coord[1] // SQUARE_LENGTH)
+        else:
+            x = (GRID_SIZE // 2 + 1) - int(world_coord[0] // (SQUARE_LENGTH / 2)) // 2
+            y = (GRID_SIZE // 2 + 1) - int(world_coord[1] // (SQUARE_LENGTH / 2)) // 2
+        # Maze cells are (vertical, horizontal)
+        return (x, y)
+
+    @staticmethod
+    def mazeCellToWorldCoords(maze_cell):
+        # Note that the world and maze have x and y axes opposite to usual Cartesian system
+        # maze_cell[0] is vertical, maze_cell[1] is horizontal
+        if GRID_SIZE % 2 == 0 :
+            x = ((GRID_SIZE // 2 - maze_cell[1]) * SQUARE_LENGTH) + SQUARE_LENGTH / 2
+            y = ((GRID_SIZE // 2 - maze_cell[0]) * SQUARE_LENGTH) + SQUARE_LENGTH / 2
+        else:
+            x = ((GRID_SIZE // 2 - maze_cell[1]) * SQUARE_LENGTH) + SQUARE_LENGTH
+            y = ((GRID_SIZE // 2 - maze_cell[0]) * SQUARE_LENGTH) + SQUARE_LENGTH
+        return (y, x)
+
     def getAdjacentCellState(self, cell, direction):
         adj_cell = self.getAdjacentCell(cell, direction)
         if adj_cell in self.maze_map:
@@ -165,9 +196,9 @@ class Maze:
             for c in range(-fill_size, fill_size + 1):
                 self.maze_map[(cell[0] + p, cell[1] + c)] = state
 
-        if time() - self.last_save_time > FILE_WRITE_PERIOD:
-            self.saveMaze()
-            self.last_save_time = time()
+        # if time() - self.last_save_time > FILE_WRITE_PERIOD:
+        #     self.saveMaze()
+        #     self.last_save_time = time()
 
     def addDataIfUnknown(self, cell, state, fill_size = 0):
         if self.maze_map[cell] == -1:
@@ -175,6 +206,15 @@ class Maze:
 
     def isCellKnown(self, cell):
         return self.maze_map[cell] != -1
+
+    def setPointsOfInterest(self, new_points, old_points):
+        added_points = [x for x in new_points if x not in old_points]
+        removed_points = [x for x in old_points if x not in new_points]
+        for poi in added_points:
+            self.addDataToMaze(Maze.worldCoordToMazeCell(poi), 1, fill_size=2)
+        for poi in removed_points:
+            self.addDataToMaze(Maze.worldCoordToMazeCell(poi), -1, fill_size=2)
+
 
     def isCloseToWall(self, cell, threshold = CLOSE_TO_WALL_THRESHOLD):
         for dy in range(-threshold, threshold + 1):
@@ -189,8 +229,10 @@ class Maze:
     
     def getHeuristic(self, cell, goal):
         manhattan_d = self.getManhattanDistance(cell, goal)
-        if self.isCloseToWall(cell, threshold = CLOSE_TO_WALL_THRESHOLD + 1):
-            return manhattan_d + 100
+        if self.maze_map[cell] == 1:
+            return manhattan_d - 5
+        elif self.isCloseToWall(cell, threshold = CLOSE_TO_WALL_THRESHOLD + 1):
+            return manhattan_d + 50
         return manhattan_d 
 
     # The A* search algorithm
