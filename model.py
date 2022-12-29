@@ -45,8 +45,8 @@ class Model:
 
     def testModel(self):
         y_hat = self.classifier.predict(self.x_test)
-        print(self.y_test)
-        print(y_hat.toarray())
+        # print(self.y_test)
+        # print(y_hat.toarray())
         cc_f1=metrics.f1_score(self.y_test, y_hat, average='micro')
         cc_hamm=metrics.hamming_loss(self.y_test,y_hat)
         print('Classifier Chain F1-score:',round(cc_f1,3))
