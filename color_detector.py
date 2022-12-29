@@ -53,7 +53,7 @@ class ColorDetector:
         color_name = self.closestColour((red // width, green // width, blue // width))
         print(color_name)
         return color_name in test_colors
-        
+
     def testColorInFullImage(self, test_colors):
         image = self.camera.getImage()
         width = self.camera.getWidth()
