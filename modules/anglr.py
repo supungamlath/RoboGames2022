@@ -4,6 +4,8 @@
 import math, numbers
 
 TWO_PI = math.pi * 2
+DIRECTION_TO_ANGLE = {"N": 0, "E": math.pi/2, "S": math.pi, "W": 3*math.pi/2}
+
 
 class Angle:
     def __init__(self, value, unit = "radians"):
@@ -96,19 +98,29 @@ class Angle:
         """Returns a new `Angle` instance that represents the angle normalized on the unit circle to be between `lower` (inclusive) and `upper` (exclusive, defaults to `lower + TAU`)."""
         self.radians = self.radians % TWO_PI
 
-    def angle_between_cw(self, angle):
+    def angleBetweenCW(self, angle):
         """Returns a new `Angle` instance that represents the clockwise angle from this `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
         return Angle((angle.radians - self.radians) % TWO_PI)
 
-    def angle_between_ccw(self, angle):
+    def angleBetweenCCW(self, angle):
         """Returns a new `Angle` instance that represents the counter clockwise angle from this `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
-        return angle.angle_between_cw(self)
+        return angle.angleBetweenCW(self)
 
-    def angle_between(self, angle):
+    def signedValueBetween(self, angle):
+        angle_cw = self.angleBetweenCW(angle)
+        angle_ccw = self.angleBetweenCCW(angle)
+        if angle_cw < angle_ccw: 
+            return angle_cw.radians
+        return -angle_ccw.radians
+
+    def getSignedError(self, orientation):
+        return self.signedValueBetween(Angle(DIRECTION_TO_ANGLE[orientation]))
+
         """Returns a new `Angle` instance that represents the smallest of the two possible angles between `Angle` instance to `angle` on the unit circle (this is always non-negative)."""
-        return min(self.angle_between_cw(angle), self.angle_between_ccw(angle))
+    def angleBetween(self, angle):
+        return min(self.angleBetweenCW(angle), self.angleBetweenCCW(angle))
 
-    def angle_within(angle, angle_1, angle_2):
+    def angleWithin(angle, angle_1, angle_2):
         # Normalize the angles to be within the range [0, 2*pi]
         angle = Angle(angle)
         angle_1 = Angle(angle_1)
@@ -121,8 +133,16 @@ class Angle:
         # Check if angle is within the range determined by angle_1 and angle_2
         return angle_1 <= angle <= angle_2
 
-    def angle_to(self, angle):
+    def angleTo(self, angle):
         """Returns a new `Angle` instance that represents the angle with the smallest magnitude that, when added to this `Angle` instance, results in `angle` on the unit circle."""
-        clockwise = self.angle_between_cw(angle)
-        counterclockwise = -angle.angle_between_clockwise(self)
+        clockwise = self.angleBetweenCW(angle)
+        counterclockwise = -angle.angleBetweenCW(self)
         return clockwise if clockwise <= abs(counterclockwise) else counterclockwise
+
+    @staticmethod
+    def getIdealAngleCW(orientation):
+        return Angle(DIRECTION_TO_ANGLE[orientation] + math.pi / 2)
+
+    @staticmethod
+    def getIdealAngleCCW(orientation):
+        return Angle(DIRECTION_TO_ANGLE[orientation] - math.pi / 2)

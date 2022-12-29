@@ -1,10 +1,11 @@
 import math
+from modules.anglr import Angle
 
 ### Math Constants ###
-TWO_PI = math.pi * 2
-PI = math.pi
-HALF_PI = math.pi / 2
-QUARTER_PI = math.pi / 4
+TWO_PI = Angle(math.pi * 2)
+PI = Angle(math.pi)
+HALF_PI = Angle(math.pi / 2)
+QUARTER_PI = Angle(math.pi / 4)
 
 class Position:
     def __init__(self, x, y, heading):
