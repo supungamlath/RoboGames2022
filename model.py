@@ -1,3 +1,6 @@
+import csv
+from pprint import pprint
+import random
 from skmultilearn.problem_transform import ClassifierChain
 from sklearn.ensemble import RandomForestClassifier
 
@@ -13,7 +16,7 @@ class Model:
         self.y_train = None
         self.y_test = None
         self.features = ["front-right","right-corner","right","left","left-corner","front-left"]
-        self.labels=[(2, 2), (2, -2), (0, 3), (0, -3), (3, 1), (3, -1), (3, 0), (1, 3), (1, -3), (3, 2), (3, -2), (2, 3), (2, -3)]
+        self.labels=[(2, 2), (2, -2), (0, 3), (0, -3), (1, 3), (1, -3), (2, 3), (2, -3), (3, 1), (3, -1), (3, 0), (3, 2), (3, -2)]
         self.classifier = ClassifierChain(
             classifier = RandomForestClassifier(),
             require_dense = [False, True],
@@ -32,9 +35,9 @@ class Model:
             c_row = []
             for c in self.labels:
                 if c in b_cells:
-                    c_row.append(1.0)
+                    c_row.append(1)
                 else:
-                    c_row.append(0.0)
+                    c_row.append(0)
             data.append(c_row)
         y = np.array(pandas.DataFrame(data, columns=self.labels))
 
@@ -42,6 +45,40 @@ class Model:
         start=time.time()
         self.classifier.fit(self.x_train, self.y_train)
         print('Training time taken:', round(time.time()-start,2),'seconds')
+
+    def checkDataSet(self):
+        df = pandas.read_csv('training_dataset.csv')
+        x = df[self.features]
+        df["blocked_cells"] = df["blocked_cells"].apply(ast.literal_eval)
+        y = df[["blocked_cells"]]
+        data = []
+        for index, row in y.iterrows():
+            c_row = []
+            for c in self.labels:
+                if c in row['blocked_cells']:
+                    c_row.append(1)
+                else:
+                    c_row.append(0)
+            data.append(c_row)
+        y = pandas.DataFrame(data, columns=self.labels)
+        counts = pandas.DataFrame(y.groupby(list(y.columns)).size(), columns=['count']).reset_index()
+        print(counts)
+
+    def generateSampleRecord(self, high_sensors=[], blocked_cells=[]):
+        sensor_names = ["front-right", "right-corner", "right", "rear-right", "rear-left", "left", "left-corner", "front-left"]
+
+        with open("training_dataset.csv", "a+", newline="") as file:
+            writer = csv.DictWriter(file, fieldnames = sensor_names + ["blocked_cells"])
+            row = {}
+            for sensor_name in sensor_names:
+                if sensor_name in high_sensors:
+                    row[sensor_name] = random.uniform(160.0, 310.0)
+                else:
+                    row[sensor_name] = random.uniform(60.0, 120.0)
+            pprint(row)
+
+            row["blocked_cells"] = blocked_cells
+            writer.writerow(row)
 
     def testModel(self):
         y_hat = self.classifier.predict(self.x_test)
@@ -66,3 +103,18 @@ class Model:
 
 if __name__ == '__main__':
     model = Model()
+    # model.generateSampleRecord(["front-left", "front-right"], [(3, 1), (3, -1), (3, 0)])
+    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, 2), (3, -2)])
+    # model.generateSampleRecord(["front-left", "front-right", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, -2)])
+    # model.generateSampleRecord(["front-left", "front-right", "left-corner"], [(3, 1), (3, -1), (3, 0), (3, 2)])
+    # model.generateSampleRecord(["front-left", "front-right", "right-corner", "right"], [(3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
+    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (0, 3), (1, 3), (2, 3)])
+    # model.generateSampleRecord(["front-left", "front-right", "right"], [(3, 1), (3, -1), (3, 0), (0, -3)])
+    # model.generateSampleRecord(["front-left", "front-right", "left"], [(3, 1), (3, -1), (3, 0), (0, 3)])
+    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "right"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
+    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, 3), (1, 3), (2, 3)])
+    # model.generateSampleRecord(["left-corner", "left"], [(2, 3), (1, 3), (0, 3)])
+    # model.generateSampleRecord(["right-corner", "right"], [(2, -3), (1, -3), (0, -3)])
+    # model.generateSampleRecord(["left-corner", "right"], [(2, 2), (0,-3)])
+    # model.generateSampleRecord(["right-corner", "left"], [(2, -2), (0, 3)])
+    # model.checkDataSet()
