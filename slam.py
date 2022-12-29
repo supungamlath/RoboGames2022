@@ -3,12 +3,9 @@ import logging, math
 from pprint import pprint
 from model import Model
 
-CLOSE_PROXIMITY_THRESHOLD = 300
-MIN_PROXIMITY_READING = 150
-CAMERA_TEST_PIXEL_ROW = 0
-CELL_OFFSET = 0 # Wall data should be offset by this constant to account for the robot's diameter 
-GOAL_VICINITY = 0.1
-SQUARE_LENGTH = 0.02
+PROXIMITY_THRESHOLD = 300
+MIN_PROXIMITY_READING = 130
+CAMERA_TEST_PIXEL_ROW = 2
 
 # Class for Simultaneous Localization and Mapping
 class SLAM:
@@ -33,23 +30,20 @@ class SLAM:
         return self.color_detector.testColorInImageRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
 
     """Returns `True` if sensor reading of the given sensor is greater than `CLOSE_PROXIMITY_THRESHOLD`""" 
-    def isObjectInCloseProximity(self, sensor_name):
-        return CLOSE_PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
+    def isObjectInProximity(self, sensor_name):
+        return PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
 
-    def isFrontBlocked(self, position, ball_locs):
-        if self.isObjectInCloseProximity("front-left") or self.isObjectInCloseProximity("front-right"):
-            ball_distances = [position.getDistanceTo(ball_loc) for ball_loc in ball_locs]
-            if min(ball_distances) < GOAL_VICINITY and self.isBallInCameraView():
-                return False
-            else:
-                return True
-        return False
+    def isFrontBlocked(self):
+        return self.isObjectInProximity("front-left") or self.isObjectInProximity("front-right")
+
+    def setTimeOutBlocked(self, cell):
+        self.maze.addDataToMaze(cell, 0)   
 
     def saveImage(self, maze_coord, orientation, is_not_facing_wall):
         self.camera.saveImage("images\\" + str(maze_coord) + orientation + str(is_not_facing_wall) + ".png", 100)
 
     def setCellAccessible(self, cell):
-        self.maze.addDataIfUnknown(cell, 1, fill_size = CELL_OFFSET)
+        self.maze.addDataIfUnknown(cell, 1, fill_size = 1)
 
     def mapWallsManually(self, cell, orientation):
         with open("training_dataset.csv", "a+", newline="") as file:
@@ -62,9 +56,9 @@ class SLAM:
                 self.should_replan = True
                 predicted_cells = self.model.predict(row)
                 print("Predicted cells: ", predicted_cells)
-                inp = input("Enter relative positions of blocked cells (comma separated). \nEnter 'a' to accept predictions. \nEnter 'n' for next cell.\n")
+                inp = input("Enter relative positions of blocked cells (comma separated). \nEnter 'a' to accept predictions. \nEnter 'q' for next cell.\n")
                 while True:
-                    if inp == 'n':
+                    if inp == 'q':
                         break
                     elif inp == 'a':
                         relative_blocked_cells += predicted_cells
@@ -76,10 +70,11 @@ class SLAM:
                             print("Invalid input")
                     inp = input()
 
-                for b_cell in relative_blocked_cells:
-                    offsets = {"parallel-axis":b_cell[0], "cross-axis":b_cell[1]}
-                    off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
-                    self.maze.addDataIfUnknown(off_cell, 0)
+                if len(relative_blocked_cells) > 0:
+                    for b_cell in relative_blocked_cells:
+                        offsets = {"parallel-axis":b_cell[0], "cross-axis":b_cell[1]}
+                        off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
+                        self.maze.addDataIfUnknown(off_cell, 0)
 
             row["blocked_cells"] = relative_blocked_cells
             writer.writerow(row)
@@ -87,8 +82,8 @@ class SLAM:
             self.model.testModel()
 
     def mapWallsAutomatically(self, cell, orientation):
-        row = self.getDistanceReadings()
-        predicted_cells = self.model.predict(row)
+        distances = self.getDistanceReadings()
+        predicted_cells = self.model.predict(distances)
         logging.debug("Predicted cells: " + str(predicted_cells))
 
         for b_cell in predicted_cells:
