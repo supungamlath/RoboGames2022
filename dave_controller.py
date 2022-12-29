@@ -4,6 +4,7 @@ sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
 from controller import Robot
 import json, math, logging, time
 from maze import Maze
+from position import Position
 from color_detector import ColorDetector
 from slam import SLAM
 
@@ -81,7 +82,7 @@ class PuckController:
         self.slam = SLAM(self.maze, self.camera, self.distance_sensors, self.color_detector)
         self.robot_x_axis = 0 # x axis is the robot's vertical axis in Webots
         self.robot_y_axis = 1 # y axis is the robot's horizontal axis in Webots
-        self.position = [0, 0, 0]
+        self.position = None
         self.orientation = None
 
         # Game variables
@@ -95,16 +96,6 @@ class PuckController:
         self.time = self.robot.getTime()
         was_data_set = False
         
-        def getOrientation(angle):
-            if angle < QUARTER_PI or angle >= (TWO_PI - QUARTER_PI):
-                return "N"
-            elif QUARTER_PI <= angle < (HALF_PI + QUARTER_PI):
-                return "E"
-            elif (HALF_PI + QUARTER_PI) <= angle < (PI + QUARTER_PI):
-                return "S"
-            elif (PI + QUARTER_PI) <= angle < (TWO_PI - QUARTER_PI):
-                return "W"
-
         while self.receiver.getQueueLength() > 0:
             was_data_set = True
             rec_data = json.loads(self.receiver.getData().decode("utf-8"))
@@ -113,16 +104,10 @@ class PuckController:
             self.rupees = rec_data["rupees"]
             self.dollars = rec_data["dollars"]
             self.exchanger_locs = rec_data["goals"]
-            self.position = rec_data["robot"]
+            x, y = rec_data["robot"]
             heading = math.radians(360 - rec_data["robotAngleDegrees"])
-            self.position.append(heading)
-            self.orientation = getOrientation(heading)
-            if self.orientation == "N" or self.orientation == "S":
-                self.robot_x_axis = 0
-                self.robot_y_axis = 1
-            else:
-                self.robot_x_axis = 1
-                self.robot_y_axis = 0
+            self.position = Position(x, y, heading)
+            self.orientation = self.position.getOrientation()
 
             self.receiver.nextPacket()
 
@@ -145,7 +130,7 @@ class PuckController:
             expected_bearing = self.maze.directionToAngle[self.maze.getLeftDir(start_orientation)]
 
         def shouldTurnCW(init_orien, expected_bearing):
-            turned_angle = self.position[2]
+            turned_angle = self.position.getHeading()
             if init_orien == "W" and turned_angle < PI:
                 turned_angle += TWO_PI
             elif init_orien == "N" and turned_angle > PI:
@@ -153,7 +138,7 @@ class PuckController:
             return turned_angle < expected_bearing
 
         def shouldTurnCCW(init_orien, expected_bearing):
-            turned_angle = self.position[2]
+            turned_angle = self.position.getHeading()
             if init_orien == "E" and turned_angle > PI:
                 turned_angle -= TWO_PI
             elif init_orien == "N" and turned_angle < PI:
@@ -180,43 +165,17 @@ class PuckController:
     def goFoward(self, target_cell):
         logging.info("Going foward")
         start_time = self.time
-        start_orientation = self.orientation
         ideal_position = self.mazeCellToWorldCoords(target_cell)
-
-        stop_target = ideal_position[self.robot_x_axis]
-        centerline = ideal_position[self.robot_y_axis]
-
-        def shouldMove(init_orien, target):
-            if init_orien == "N":
-                return self.position[0] < target
-            elif init_orien == "S":
-                return self.position[0] > target
-            elif init_orien == "E":
-                return self.position[1] > target
-            elif init_orien == "W":
-                return self.position[1] < target
+        stop_target, centerline = self.position.getRelativeXY(ideal_position)
 
         def shouldStop(start_time):
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 logging.debug("Movement timeout: Current time - " + str(self.time) + " Start time - " + str(start_time))
                 return True
-            elif self.slam.isObjectInCloseProximity("front-left") or self.slam.isObjectInCloseProximity("front-right"):
-                return True
-            return False
+            return self.slam.isFrontBlocked(self.position, self.money_drops)
 
-        def getPIDError(init_orien, target):
-            if init_orien == "N":
-                error = self.position[1] - target
-            elif init_orien == "S":
-                error = target - self.position[1]
-            elif init_orien == "E":
-                error = self.position[0] - target
-            elif init_orien == "W":
-                error = target - self.position[0]
-            return error
-
-        while shouldMove(start_orientation, stop_target):
-            error = getPIDError(start_orientation, centerline)
+        while self.position.isTargetReachableMovingFoward(stop_target):
+            error = self.position.getRelativeVAxisError(centerline)
             change = error * PID_P
 
             self.left_motor.setVelocity(SPEED + change)
@@ -336,22 +295,36 @@ class PuckController:
 
             return min_path
 
-        # if len(self.money_drops) > 0 and self.rupees == 2000:
-        #     self.path = getShortestPath(self.money_drops, self.exchanger_locs[0])
-        # elif len(self.money_drops) > 0 and self.rupees < 2000:
-        #     self.path = getShortestPath(self.money_drops, None)
-        # elif self.rupees == CAPACITY:
-        #     exchanger_cell = self.worldCoordToMazeCell(self.exchanger_locs[0])
-        #     self.path = self.maze.getPath(current_cell, exchanger_cell)
-        # else:
-        #     self.path = self.maze.getPath(current_cell, (1,1))
-        #     logging.debug("Path selection - Targetless (Learning Path Only)")
+        if len(self.money_drops) > 0 and self.rupees > 8000:
+            self.path = getShortestPath(self.money_drops, self.exchanger_locs[0])
+        elif len(self.money_drops) > 0 and self.rupees < 2000:
+            self.path = getShortestPath(self.money_drops, None)
+        elif self.rupees == CAPACITY:
+            exchanger_cell = self.worldCoordToMazeCell(self.exchanger_locs[0])
+            self.path = self.maze.getPath(current_cell, exchanger_cell)
+        else:
+            self.path = self.maze.getPath(current_cell, (1,1))
+            logging.debug("Path selection - Targetless (Learning Path Only)")
 
-        goal = self.worldCoordToMazeCell(self.exchanger_locs[1])
-        self.path = self.maze.getPath(current_cell, goal)
+        # goal = self.worldCoordToMazeCell(self.exchanger_locs[1])
+        # self.path = self.maze.getPath(current_cell, goal)
+
+    def setPathManually(self, current_cell):
+        direction = input("Enter direction (N, E, S, W): ")
+        if direction == "N":
+            self.path = {current_cell: (current_cell[0] - 1, current_cell[1])}
+        elif direction == "E":
+            self.path = {current_cell: (current_cell[0], current_cell[1] + 1)}
+        elif direction == "S":
+            self.path = {current_cell: (current_cell[0] + 1, current_cell[1])}
+        elif direction == "W":
+            self.path = {current_cell: (current_cell[0], current_cell[1] - 1)}
+        else:
+            print("Invalid direction")
+            self.setPathManually(current_cell)
 
     def getCurrentCell(self):
-        return self.worldCoordToMazeCell((self.position[0], self.position[1]))
+        return self.worldCoordToMazeCell(self.position.getWorldXY())
 
     ### Main function ###
     def run(self):
@@ -377,7 +350,7 @@ class PuckController:
                     state = 1
                     continue
                 if current_cell not in self.path or self.slam.should_replan:                
-                    self.setPath(current_cell)
+                    self.setPathManually(current_cell)
                     self.slam.should_replan = False
 
                 next_cell = self.path[current_cell]
