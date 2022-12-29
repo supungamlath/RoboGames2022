@@ -23,16 +23,22 @@ pip install -r requirements.txt
 
 ## Usage
 
-To run Dave's controller, open the "FinalizedMaze.wbt" file in Webots 2022 and select the "Dave" robot. Then, select the "Controller" tab and choose the "dave_controller.py" file as the controller.
+To run Dave's controller, open the "FinalizedMaze.wbt" file in Webots 2022 and select the "Dave" robot.
+
+Then, select the "Controller" tab and choose the "dave_controller.py" file as the controller.
 
 ## Code Structure
 
 The code is structured as follows:
 
 dave_controller.py: This is the main controller file, which contains the code that Dave will use to navigate the maze, collect rupees and convert them to dollars.
+
 maze.py: This file contains the code that is used to create the maze and the keep track of walls, visited cells and unknown cells.
+
 slam.py: This file contains the code that is used to perform SLAM (Simultaneous Localization and Mapping) using distance sensors and camera data.
+
 model.py: This file contains the code that is used to train a multi-label classification model that can predict the blocked cells from distance sensor readings.
+
 color_detector.py: This file contains the code that is used to detect objects from camera images.
 
 ## Approach
@@ -40,9 +46,13 @@ color_detector.py: This file contains the code that is used to detect objects fr
 To solve the challenge, Dave's controller uses the following approach:
 
 Receive data from the supervisor robot's emitter, including the location and exchange rate of the goals, the location of rupees, and Dave's current rupee and dollar balances.
+
 Determine the goal with the highest exchange rate and plan a path to reach it.
+
 Collect rupees along the way, making sure to keep track of Dave's rupee balance and pay taxes as necessary.
+
 When Dave reaches the goal, convert all of his rupees into dollars at the current exchange rate.
+
 Repeat the process until indefinitely.
 
 ## License
