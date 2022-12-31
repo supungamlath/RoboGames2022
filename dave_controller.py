@@ -67,7 +67,6 @@ class PuckController:
         self.money_drops = []
         self.exchanger_locs = []
         self.path = {}
-        self.goal_mode = 0
 
         # Localization variables
         self.slam = SLAM(self.maze, self.camera, self.distance_sensors)
@@ -195,62 +194,6 @@ class PuckController:
             self.turn("left")
             return self.goFoward(next_cell)
 
-    def setPath1(self, current_cell):
-        logging.info("Setting path")
-        logging.info("Game time: " + str(self.game_time))
-        logging.info("Rupees: " + str(self.rupees))
-        print("Rupees: " + str(self.rupees))
-        logging.info("Dollars: " + str(self.dollars))
-
-        # Waders around for WANDER_TIME with goal set to (0,0)
-        if self.goal_mode == 1:
-            if self.time > WANDER_TIME or self.game_time > 0:
-                self.goal_mode = 3
-            elif self.maze.getManhattanDistance(current_cell, (0,0)) < 3:
-                self.goal_mode = 2
-            else:
-                self.path = self.maze.getPath(current_cell, Maze.worldCoordToMazeCell((0,0)))
-        
-        elif self.goal_mode == 2: 
-            if self.time > WANDER_TIME or self.game_time > 0:
-                self.goal_mode = 3
-            else:
-                sorted_exchanges = sorted(self.exchanger_locs, key=lambda x: x[2])
-                self.path = self.maze.getPath(current_cell, Maze.worldCoordToMazeCell(sorted_exchanges[0]))
-
-        # Goes to nearest money drop
-        elif self.goal_mode == 3:
-            if self.rupees > 5000:
-                self.goal_mode = 4
-            else:
-                closest_exchange = self.position.getClosestPosition(self.exchanger_locs)
-                exchange_cell = Maze.worldCoordToMazeCell(closest_exchange)
-                if self.maze.getManhattanDistance(current_cell, exchange_cell) < 10 and self.rupees > 0:
-                    self.path = self.maze.getPath(current_cell, exchange_cell)
-                else:
-                    nearest_positions = self.position.getPositionsSortedByDistance(self.money_drops)[0:3]
-                    self.path = self.maze.getShortestPath(current_cell, nearest_positions)
-
-        # Goes to a money drop or a best exchange, whichever is nearest
-        elif self.goal_mode == 4:
-            if self.rupees > 8000:
-                self.goal_mode = 5
-            elif self.rupees < 5000:
-                self.goal_mode = 3
-            else:
-                sorted_exchanges = sorted(self.exchanger_locs, key=lambda x: x[2])[0:2]
-                highest_rates = [x[2] for x in sorted_exchanges]
-                best_exchanges = [x for x in sorted_exchanges if x[2] in highest_rates]
-                nearest_positions = self.position.getPositionsSortedByDistance(self.money_drops + best_exchanges)[0:3]
-                self.path = self.maze.getShortestPath(current_cell, nearest_positions)
-        
-        # Goes to the nearest exchange
-        elif self.goal_mode == 5:
-            if self.rupees < 8000:
-                self.goal_mode = 4
-            else:
-                self.path = self.maze.getShortestPath(current_cell, self.exchanger_locs)
-
     def setPath(self, current_cell):
         exchange_cells = [Maze.worldCoordToMazeCell(exchange) for exchange in self.exchanger_locs]
         exchange_rates = [exchange[2] for exchange in self.exchanger_locs]
@@ -259,21 +202,6 @@ class PuckController:
         self.game.setData(current_cell, money_cells, exchange_cells, exchange_rates, self.rupees, self.time)
         goal = self.game.getGoal()
         self.path = self.maze.getPath(current_cell, goal)
-
-    def setPathManually(self, current_cell):
-        direction = input("Enter direction (N, E, S, W): ")
-        direction = direction.upper()
-        if direction == "N":
-            self.path = {current_cell: (current_cell[0] - 1, current_cell[1])}
-        elif direction == "E":
-            self.path = {current_cell: (current_cell[0], current_cell[1] + 1)}
-        elif direction == "S":
-            self.path = {current_cell: (current_cell[0] + 1, current_cell[1])}
-        elif direction == "W":
-            self.path = {current_cell: (current_cell[0], current_cell[1] - 1)}
-        else:
-            print("Invalid direction")
-            self.setPathManually(current_cell)
 
     ### Main function ###
     def run(self):
