@@ -1,5 +1,6 @@
 import math
 from modules.anglr import Angle
+from maze import Maze
 
 ### Math Constants ###
 TWO_PI = Angle(math.pi * 2)
@@ -18,6 +19,9 @@ class Position:
 
     def getWorldXY(self):
         return self.x, self.y
+
+    def getMazeCell(self):
+        return Maze.worldCoordToMazeCell((self.x, self.y))
 
     def getHeading(self):
         return self.heading
@@ -65,7 +69,23 @@ class Position:
         if isinstance(position, Position):
             t_x, t_y = position.getWorldXY()
         else:
-            t_x, t_y = position
+            t_x = position[0]
+            t_y = position[1]
         dx = t_x - self.x
         dy = t_y - self.y
         return math.sqrt(dx**2 + dy**2)
+
+    def getClosestPosition(self, positions):
+        return min(positions, key=lambda pos:self.getDistanceTo(pos))
+
+    def getFarthestPosition(self, positions):
+        return max(positions, key=lambda pos:self.getDistanceTo(pos))
+
+    def getPositionsInRadius(self, positions, radius):
+        return [position for position in positions if self.getDistanceTo(position) <= radius]
+
+    def isPositionInRadius(self, position, radius):
+        return self.getDistanceTo(position) <= radius
+
+    def getPositionsSortedByDistance(self, positions):
+        return sorted(positions, key=lambda pos:self.getDistanceTo(pos))
