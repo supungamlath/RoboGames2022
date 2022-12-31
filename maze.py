@@ -1,16 +1,16 @@
-import csv, shutil, cv2, math, numpy as np
+import csv, shutil, cv2, numpy as np
 from heapq import heappush, heappop
 from time import time
 from collections import deque
 from tempfile import NamedTemporaryFile
-from image_processing import *
 
 ### Maze Constants ###
 # Maze is 4 m by 4 m square with four 0.5 m extensions
 GRID_SIZE = 222
 SQUARE_LENGTH = 0.02
+CELL_TOO_CLOSE_TO_WALL = 1
+CLOSE_TO_WALL_PENALTY = 5
 
-CLOSE_TO_WALL_THRESHOLD = 1
 FILE_WRITE_PERIOD = 2
 
 class Maze:
@@ -48,33 +48,6 @@ class Maze:
             for row in csv.DictReader(f):
                 cell = [int(i) for i in row["cell"].strip("()").split(", ")]
                 self.maze_map[tuple(cell)] = int(row["state"])
-
-    @staticmethod
-    def getOppositeDir(direction):
-        if direction == "N":
-            return "S"
-        elif direction == "E":
-            return "W"
-        elif direction == "S":
-            return "N"
-        elif direction == "W":
-            return "E"
-
-    @staticmethod
-    def getLeftDir(direction):
-        if direction == "N":
-            return "W"
-        elif direction == "E":
-            return "N"
-        elif direction == "S":
-            return "E"
-        elif direction == "W":
-            return "S"
-
-    @staticmethod
-    def getRightDir(direction):
-        left_dir = Maze.getLeftDir(direction)
-        return Maze.getOppositeDir(left_dir)
 
     @staticmethod
     def getCellInDirection(cell, direction, offset):
@@ -204,9 +177,6 @@ class Maze:
         if self.maze_map[cell] == -1:
             self.addDataToMaze(cell, state, fill_size)
 
-    def isCellKnown(self, cell):
-        return self.maze_map[cell] != -1
-
     def setPointsOfInterest(self, new_points, old_points):
         added_points = [x for x in new_points if x not in old_points]
         removed_points = [x for x in old_points if x not in new_points]
@@ -215,8 +185,12 @@ class Maze:
         for poi in removed_points:
             self.addDataToMaze(Maze.worldCoordToMazeCell(poi), -1, fill_size=2)
 
+    def setKnownPoints(self, points, p_type):
+        for point in points:
+            self.addDataToMaze(Maze.worldCoordToMazeCell(point), p_type, fill_size=2)
 
-    def isCloseToWall(self, cell, threshold = CLOSE_TO_WALL_THRESHOLD):
+
+    def isTooCloseToWall(self, cell, threshold = CELL_TOO_CLOSE_TO_WALL):
         for dy in range(-threshold, threshold + 1):
             for dx in range(-threshold, threshold + 1):
                 if self.maze_map[(cell[0] + dy, cell[1] + dx)] == 0:
@@ -224,15 +198,16 @@ class Maze:
         return False
 
     # Calculate the Manhattan distance between two cells
-    def getManhattanDistance(self, a, b):
+    @staticmethod
+    def getManhattanDistance(a, b):
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
     
     def getHeuristic(self, cell, goal):
-        manhattan_d = self.getManhattanDistance(cell, goal)
-        if self.maze_map[cell] == 1:
-            return manhattan_d - 5
-        elif self.isCloseToWall(cell, threshold = CLOSE_TO_WALL_THRESHOLD + 1):
-            return manhattan_d + 50
+        manhattan_d = Maze.getManhattanDistance(cell, goal)
+        # if self.maze_map[cell] == 1:
+        #     return manhattan_d - 5
+        if self.isTooCloseToWall(cell, threshold = CELL_TOO_CLOSE_TO_WALL + 1):
+            return manhattan_d + CLOSE_TO_WALL_PENALTY
         return manhattan_d 
 
     # The A* search algorithm
@@ -257,7 +232,7 @@ class Maze:
         while heap:
             # Pop the cell with the lowest estimated cost
             _, current = heappop(heap)
-            # If the current cell is the goal, return the path
+            # If the current cell is the goal, break the loop
             if current == goal:
                 break
             # Mark the current cell as visited
@@ -271,7 +246,7 @@ class Maze:
                 # Skip the adjacent cell if it is out of bounds or is a wall
                 if not (0 < next_row < self.rows and 0 < next_col < self.cols) or self.maze_map[(next_row, next_col)] == 0:
                     continue
-                if self.isCloseToWall((next_row, next_col)):
+                if self.isTooCloseToWall((next_row, next_col)):
                     continue
                 # Skip the adjacent cell if it has already been visited
                 if (next_row, next_col) in visited:
@@ -303,8 +278,13 @@ class Maze:
         # return self.BFS(start, goal)
         return self.AStarSearch(start, goal)
 
+    def getShortestPath(self, current_cell, positions):
+        cells = [Maze.worldCoordToMazeCell(pos) for pos in positions]
+        paths = [self.getPath(current_cell, cell) for cell in cells]
+        paths.sort(key = lambda path: len(path) if path else float('inf'))
+        return paths[0]
+
     def showMaze(self, path, current_cell, refresh_rate = 200):
-        # Create an empty NumPy array
         image = np.zeros((self.rows, self.cols,3))
 
         # Iterate through the dictionary and set the corresponding pixels in the image
@@ -323,19 +303,10 @@ class Maze:
         if current_cell:
             image[current_cell[0]-1][current_cell[1]-1] = (255,0,0)
 
-        # Show the image with the rectangles
-        cv2.namedWindow("Resized_Window", cv2.WINDOW_NORMAL)
-        
-        # Using resizeWindow()
-        cv2.resizeWindow("Resized_Window", self.rows*3, self.cols*3)
-        
-        # Displaying the image
-        cv2.imshow("Resized_Window", image)
-
-        # Wait for a key press to close the window
+        cv2.namedWindow("Mapped Maze", cv2.WINDOW_KEEPRATIO)
+        cv2.resizeWindow("Mapped Maze", self.rows*3, self.cols*3)
+        cv2.imshow("Mapped Maze", image)
         cv2.waitKey(refresh_rate)
-
-        # Destroy all windows
         # cv2.destroyAllWindows()
 
 

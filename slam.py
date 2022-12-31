@@ -2,6 +2,7 @@ import csv
 import logging, math
 from pprint import pprint
 from model import Model
+from color_detector import ColorDetector
 
 PROXIMITY_THRESHOLD = 300
 MIN_PROXIMITY_READING = 130
@@ -9,13 +10,13 @@ CAMERA_TEST_PIXEL_ROW = 2
 
 # Class for Simultaneous Localization and Mapping
 class SLAM:
-    def __init__(self, maze, camera, distance_sensors, color_detector):
+    def __init__(self, maze, camera, distance_sensors):
         self.maze = maze
         self.camera = camera
         self.distance_sensors = distance_sensors
-        self.color_detector = color_detector
         self.should_replan = True
         self.model = Model()
+        self.color_detector = ColorDetector(self.camera)
 
     def getDistanceReadings(self):
         readings = {}
@@ -43,7 +44,7 @@ class SLAM:
         self.camera.saveImage("images\\" + str(maze_coord) + orientation + str(is_not_facing_wall) + ".png", 100)
 
     def setCellAccessible(self, cell):
-        self.maze.addDataIfUnknown(cell, 1, fill_size = 1)
+        self.maze.addDataIfUnknown(cell, 1, fill_size = 0)
 
     def mapWallsManually(self, cell, orientation):
         with open("training_dataset.csv", "a+", newline="") as file:
