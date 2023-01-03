@@ -8,6 +8,11 @@ from tempfile import NamedTemporaryFile
 # Maze is 4 m by 4 m square with four 0.5 m extensions
 GRID_SIZE = 222
 SQUARE_LENGTH = 0.02
+BORDERS = [ [(12, 12), (99, 12)], [(99, 1), (99, 12)], [(99, 1), (123, 1)], [(123, 1), (123, 12)], [(123, 12), (211, 12)],
+            [(211, 12), (211, 99)], [(211, 99), (222, 99)], [(224, 99), (224, 123)], [(211, 123), (222, 123)], [(211, 123), (211, 211)],
+            [(12, 211), (99, 211)], [(99, 211), (99, 222)], [(99, 222), (123, 222)], [(123, 211), (123, 222)], [(123, 211), (211, 211)],
+            [(12, 12), (12, 99)], [(1, 99), (12, 99)], [(1, 99), (1, 123)], [(1, 123), (12, 123)], [(12, 123), (12, 211)] ]
+
 CELL_TOO_CLOSE_TO_WALL = 1
 CLOSE_TO_WALL_PENALTY = 5
 
@@ -28,19 +33,45 @@ class Maze:
         self.createMazeFile()
         self.loadMaze()
    
+    # def createMazeFile(self):
+    #     self.last_save_time = time()
+    #     with open(self.filename, "w") as f:
+    #         lines = [",".join(self.fields) + "\n"]
+    #         for i in range(1, self.rows + 1):
+    #             for j in range(1, self.cols + 1):
+    #                 parts = ["\"" + str((i, j)) + "\""]
+    #                 parts.append("-1")
+    #                 if i == 1 or i == self.rows or j == 1 or j == self.cols:
+    #                     parts[1] = "0"
+    #                 line = ",".join(parts) + "\n" 
+    #                 lines.append(line)
+    #         f.writelines(lines)
+
     def createMazeFile(self):
         self.last_save_time = time()
-        with open(self.filename, "w") as f:
-            lines = [",".join(self.fields) + "\n"]
+        
+        def isCellOnBorder(cell):
+            i, j = cell
+            if i == 1 or i == self.rows or j == 1 or j == self.cols:
+                return True
+            for border in BORDERS:
+                a, b = border[0]
+                c, d = border[1]
+                if a <= i <= c and b <= j <= d:
+                    return True
+            return False
+            
+        with open(self.filename, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.fields)
+            writer.writeheader()
             for i in range(1, self.rows + 1):
                 for j in range(1, self.cols + 1):
-                    parts = ["\"" + str((i, j)) + "\""]
-                    parts.append("-1")
-                    if i == 1 or i == self.rows or j == 1 or j == self.cols:
-                        parts[1] = "0"
-                    line = ",".join(parts) + "\n" 
-                    lines.append(line)
-            f.writelines(lines)
+                    if isCellOnBorder((i, j)):
+                        state = 0
+                    else:
+                        state = -1
+                    row = {"cell":(i, j), "state":state}
+                    writer.writerow(row)
 
     def loadMaze(self):
         # Load maze from CSV file
@@ -278,11 +309,11 @@ class Maze:
         # return self.BFS(start, goal)
         return self.AStarSearch(start, goal)
 
-    def getShortestPath(self, current_cell, positions):
-        cells = [Maze.worldCoordToMazeCell(pos) for pos in positions]
-        paths = [self.getPath(current_cell, cell) for cell in cells]
-        paths.sort(key = lambda path: len(path) if path else float('inf'))
-        return paths[0]
+    def getPathLength(self, start, goal):
+        path = self.getPath(start, goal)
+        if path:
+            return len(path)
+        return float('inf')
 
     def showMaze(self, path, current_cell, refresh_rate = 200):
         image = np.zeros((self.rows, self.cols,3))
