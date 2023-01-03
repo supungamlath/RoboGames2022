@@ -44,7 +44,7 @@ def test_world_to_maze():
 
     GRID_SIZE = 222
     SQUARE_LENGTH = 0.02
-    world_coord = (-2.01, -0.01)
+    world_coord = (0.25, 2.12)
     maze_coord = worldCoordToMazeCell(world_coord)
     print(maze_coord)
 

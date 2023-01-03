@@ -1,5 +1,6 @@
 import sys
-sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39")
+# Python version should be 3.9.5
+sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39\\") 
 
 from controller import Robot
 import json, math, logging, time
@@ -18,7 +19,7 @@ SPEED = 4.5 # Max - 6.28
 TURN_SPEED = 4.0
 TURN_TIMEOUT = 2.0
 MOVEMENT_TIMEOUT = 1.5
-WANDER_TIME = 3 * 60
+WANDER_TIME = 210
 SEARCH_RADIUS = 1.0
 POINT_RADIUS = 0.06 # Max - 0.085
 
@@ -36,8 +37,8 @@ class PuckController:
         self.receiver.enable(self.timestep)
 
         # Camera initialization
-        # self.camera = self.robot.getDevice("camera")
         self.camera = None
+        # self.camera = self.robot.getDevice("camera")
         # self.camera.setFov(0.62)
         # self.camera.setExposure(5.0)
         # self.camera.enable(self.timestep)
@@ -145,7 +146,7 @@ class PuckController:
         def shouldStop(start_time):
             if self.time - start_time > MOVEMENT_TIMEOUT:
                 logging.warning("Movement timeout: Current time - " + str(self.time) + " Start time - " + str(start_time))
-                self.slam.setTimeOutBlocked(target_cell)
+                self.slam.setTimeOutBlocked(target_cell, self.orientation)
                 return True
             return self.slam.isFrontBlocked()
 
@@ -199,6 +200,8 @@ class PuckController:
         exchange_rates = [exchange[2] for exchange in self.exchanger_locs]
         money_cells = [Maze.worldCoordToMazeCell(money) for money in self.money_drops]
 
+        print("Dollars " + str(self.dollars))
+        logging.debug("Dollars " + str(self.dollars))
         self.game.setData(current_cell, money_cells, exchange_cells, exchange_rates, self.rupees, self.time)
         goal = self.game.getGoal()
         self.path = self.maze.getPath(current_cell, goal)
@@ -213,8 +216,6 @@ class PuckController:
 
             current_cell = self.position.getMazeCell()
             
-            # if current_cell not in self.path or self.slam.should_replan:                
-                # self.slam.should_replan = False
             self.setPath(current_cell)
 
             next_cell = self.path[current_cell]
@@ -228,7 +229,6 @@ class PuckController:
             else:
                 logging.info("Cannot move to cell " + str(next_cell))
 
-            # TODO - Only map cells that are unvisited in the current direction 
             self.slam.mapWallsAutomatically(current_cell, self.orientation)
 
             if was_move_successful:

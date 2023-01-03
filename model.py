@@ -74,9 +74,9 @@ class Model:
             row = {}
             for sensor_name in sensor_names:
                 if sensor_name in high_sensors:
-                    row[sensor_name] = random.uniform(400.0, 1500.0)
+                    row[sensor_name] = random.uniform(180.0, 390.0)
                 else:
-                    row[sensor_name] = random.uniform(60.0, 150.0)
+                    row[sensor_name] = random.uniform(60.0, 130.0)
             pprint(row)
 
             row["blocked_cells"] = blocked_cells
@@ -111,6 +111,7 @@ class Model:
 if __name__ == '__main__':
     model = Model()
     # model.generateSampleRecord(["front-left", "front-right"], [(3, 1), (3, -1), (3, 0)])
+    # model.generateSampleRecord(["left", "right"], [(0, -3), (0, 3)])
     # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, 2), (3, -2)])
     # model.generateSampleRecord(["front-left", "front-right", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, -2)])
     # model.generateSampleRecord(["front-left", "front-right", "left-corner"], [(3, 1), (3, -1), (3, 0), (3, 2)])
