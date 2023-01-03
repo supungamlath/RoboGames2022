@@ -4,14 +4,14 @@ import logging
 ###
 # Test 1
 # Time - 47 mins
-# Dollars - 184.509 
+# Dollars - 102.16
 # Rupees - 0
 ###
 
 WANDER_TIME = 210
+EXCHANGE_RADIUS = 75
 POINT_RADIUS = 2 # Max - 0.085 / 0.02
-REALLY_CLOSE_RADIUS = 20
-EXCHANGE_RADIUS = 70
+REALLY_CLOSE_RADIUS = 15
 CENTER_CELL = Maze.worldCoordToMazeCell((0, 0))
 LOSS_PER_CELL = 1.8
 
@@ -26,7 +26,6 @@ class Game:
         self.rupees = 0
         self.target_exchange = None
         self.target_drop = None
-        self.exchanges_changed = False
 
     def setData(self, current_cell, money_cells, exchange_cells, exchange_rates, rupees, time):
         logging.debug("Rupees: " + str(rupees))
@@ -36,10 +35,6 @@ class Game:
         self.money_cells = money_cells
         self.rupees = rupees
         self.time = time
-        if self.exchange_rates != exchange_rates:
-            self.exchanges_changed = True
-        else:
-            self.exchanges_changed = False
         self.exchange_cells = exchange_cells
         self.exchange_rates = exchange_rates
 
@@ -104,17 +99,20 @@ class Game:
             return CENTER_CELL
 
         elif self.state == 3:
-            if self.rupees >= 6000 and self.exchanges_changed:
+            if self.rupees >= 900:
                 self.target_exchange = self.getHighestExchange()
                 self.state = 4
-            elif self.rupees >= 1500 and min(self.exchange_rates) < 150:
-                self.target_exchange = self.getBestExchange()
-                self.state = 4
 
-            if self.target_drop is None or self.isAtCell(self.target_drop):
-                sorted_drops = sorted(self.money_cells, key=lambda drop: Maze.getManhattanDistance(self.current_cell, drop))
-                closest_drops = sorted_drops[0:3]
-                self.target_drop = sorted( closest_drops, key=lambda drop: self.maze.getPathLength(self.current_cell, drop))[0]
+            elif self.target_drop is None:
+                best_exchange = self.getBestExchange()
+                sorted_drops = sorted( self.money_cells, 
+                                        key=lambda drop:    Maze.getManhattanDistance(self.current_cell, drop) + 
+                                                            Maze.getManhattanDistance(drop, best_exchange))
+                closest_drops = sorted_drops[0:2]
+                t_sorted_drops = sorted( closest_drops, 
+                                                key=lambda drop:    self.maze.getPathLength(self.current_cell, drop) + 
+                                                                    self.maze.getPathLength(drop, best_exchange))
+                self.target_drop = t_sorted_drops[0]
 
             really_close_drop = self.getReallyCloseDrops(self.money_cells)
             if really_close_drop:
@@ -124,15 +122,14 @@ class Game:
         elif self.state == 4:
             self.target_drop = None
 
-            if self.exchanges_changed:
-                self.target_exchange = self.getHighestExchange()
-            if self.rupees <= 1000 or self.isAtCell(self.target_exchange):
-                self.target_exchange = self.getHighestExchange()
+            if self.rupees <= 10:
                 self.state = 3
+            elif self.isAtCell(self.target_exchange):
+                self.target_exchange = self.getBestExchange()
+                self.state = 1
 
-            if not self.isInRadius(self.target_exchange, REALLY_CLOSE_RADIUS):
-                really_close_drop = self.getReallyCloseDrops(self.money_cells)
-                if really_close_drop:
-                    return really_close_drop
+            really_close_drop = self.getReallyCloseDrops(self.money_cells)
+            if really_close_drop:
+                return really_close_drop
             return self.target_exchange
         
