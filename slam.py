@@ -14,7 +14,6 @@ class SLAM:
         self.maze = maze
         self.camera = camera
         self.distance_sensors = distance_sensors
-        self.should_replan = True
         self.model = Model()
         self.color_detector = ColorDetector(self.camera)
 
@@ -34,11 +33,21 @@ class SLAM:
     def isObjectInProximity(self, sensor_name):
         return PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
 
+    def isObjectInMinProximity(self, sensor_name):
+        return MIN_PROXIMITY_READING < self.distance_sensors[sensor_name].getValue() 
+
     def isFrontBlocked(self):
         return self.isObjectInProximity("front-left") or self.isObjectInProximity("front-right")
 
-    def setTimeOutBlocked(self, cell):
-        self.maze.addDataToMaze(cell, 0)   
+    def setTimeOutBlocked(self, cell, orientation):
+        if self.isObjectInMinProximity("front-left") or self.isObjectInMinProximity("left-corner"):
+            offsets = {"parallel-axis":2, "cross-axis":1}
+        elif self.isObjectInMinProximity("front-right") or self.isObjectInMinProximity("right-corner"):
+            offsets = {"parallel-axis":2, "cross-axis":-1}
+        else:
+            offsets = {"parallel-axis":2, "cross-axis":0}
+        off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
+        self.maze.addDataToMaze(off_cell, 0)
 
     def saveImage(self, maze_coord, orientation, is_not_facing_wall):
         self.camera.saveImage("images\\" + str(maze_coord) + orientation + str(is_not_facing_wall) + ".png", 100)
@@ -54,7 +63,6 @@ class SLAM:
 
             relative_blocked_cells = []
             if max(row.values()) >= MIN_PROXIMITY_READING:
-                self.should_replan = True
                 predicted_cells = self.model.predict(row)
                 print("Predicted cells: ", predicted_cells)
                 inp = input("Enter relative positions of blocked cells (comma separated). \nEnter 'a' to accept predictions. \nEnter 'q' for next cell.\n")
@@ -88,7 +96,6 @@ class SLAM:
         logging.debug("Predicted cells: " + str(predicted_cells))
 
         for b_cell in predicted_cells:
-            self.should_replan = True
             offsets = {"parallel-axis":b_cell[0], "cross-axis":b_cell[1]}
             off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
             self.maze.addDataIfUnknown(off_cell, 0)
