@@ -31,15 +31,17 @@ Then, select the "Controller" tab and choose the "dave_controller.py" file as th
 
 The code is structured as follows:
 
-dave_controller.py: This is the main controller file, which contains the code that Dave will use to navigate the maze, collect rupees and convert them to dollars.
+`dave_controller.py` is the main controller file, which contains the code that Dave will use to navigate the maze, collect rupees and convert them to dollars.
 
-maze.py: This file contains the code that is used to create the maze and the keep track of walls, visited cells and unknown cells.
+`maze.py` contains the code that is used to create the maze and the keep track of walls, visited cells and unknown cells.
 
-slam.py: This file contains the code that is used to perform SLAM (Simultaneous Localization and Mapping) using distance sensors and camera data.
+`slam.py` contains the code that is used to perform SLAM (Simultaneous Localization and Mapping) using distance sensors and camera data.
 
-model.py: This file contains the code that is used to train a multi-label classification model that can predict the blocked cells from distance sensor readings.
+`model.py` contains the code that is used to train a multi-label classification model that can predict the blocked cells from distance sensor readings.
 
-color_detector.py: This file contains the code that is used to detect objects from camera images.
+`color_detector.py` contains the code that is used to detect objects from camera images.
+
+`game.py` contains the logic for selecting exchanges and money drops in the optimal order.
 
 ## Approach
 
