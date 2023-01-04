@@ -4,8 +4,8 @@ import logging
 ###
 # Test 1
 # Time - 47 mins
-# Dollars - 106.32 
-# Rupees - 4445
+# Dollars - 184.509 
+# Rupees - 0
 ###
 
 WANDER_TIME = 210
@@ -29,19 +29,15 @@ class Game:
         self.exchanges_changed = False
 
     def setData(self, current_cell, money_cells, exchange_cells, exchange_rates, rupees, dollars, time):
-        logging.debug("Dollars " + str(dollars))
         logging.debug("Rupees: " + str(rupees))
         logging.debug("Game time: " + str(time))
+        print("Rupees: " + str(rupees))
         self.current_cell = current_cell
         self.money_cells = money_cells
         self.rupees = rupees
         self.time = time
         if self.exchange_rates != exchange_rates:
             self.exchanges_changed = True
-            print("Exchange rates " + str(exchange_rates))
-            print("Dollars " + str(dollars))
-            print("Rupees: " + str(rupees))
-            print("Game time: " + str(time/60))
         else:
             self.exchanges_changed = False
         self.exchange_cells = exchange_cells
@@ -85,7 +81,7 @@ class Game:
 
     def getGoal(self):
         logging.info("State: " + str(self.state))
-        # print("State: " + str(self.state))
+        print("State: " + str(self.state))
         if self.state == 1:
             if not self.target_exchange:
                 self.target_exchange = self.getBestExchange()
