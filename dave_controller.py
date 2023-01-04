@@ -200,9 +200,7 @@ class PuckController:
         exchange_rates = [exchange[2] for exchange in self.exchanger_locs]
         money_cells = [Maze.worldCoordToMazeCell(money) for money in self.money_drops]
 
-        print("Dollars " + str(self.dollars))
-        logging.debug("Dollars " + str(self.dollars))
-        self.game.setData(current_cell, money_cells, exchange_cells, exchange_rates, self.rupees, self.time)
+        self.game.setData(current_cell, money_cells, exchange_cells, exchange_rates, self.rupees, self.dollars, self.time)
         goal = self.game.getGoal()
         self.path = self.maze.getPath(current_cell, goal)
 
