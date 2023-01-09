@@ -1,7 +1,7 @@
 import sys
 sys.path.append('../dave_controller')
 
-from color_detector import ColorDetector
+from backups.color_detector import ColorDetector
 import cv2, glob
 
 def test_houghlines():

@@ -5,7 +5,7 @@ from slam import SLAM
 import math
 
 def test_slam_m_line():
-    slam = SLAM(None, None, None, None)
+    slam = SLAM(None, None, None)
     point1 = (1, 2)
     point2 = (3, 4)
     m, c = slam.setMLine(point1, point2)
@@ -14,7 +14,7 @@ def test_slam_m_line():
     assert c == 1
     
 def test_slam_angle_to_goal():
-    slam = SLAM(None, None, None, None)
+    slam = SLAM(None, None, None)
 
     point1 = (1, 1)
     point2 = (2, 1)

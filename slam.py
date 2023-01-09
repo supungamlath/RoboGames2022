@@ -1,8 +1,8 @@
 import csv
-import logging, math
+import logging
 from pprint import pprint
 from model import Model
-from color_detector import ColorDetector
+# from color_detector import ColorDetector
 
 PROXIMITY_THRESHOLD = 300
 MIN_PROXIMITY_READING = 130
@@ -15,7 +15,7 @@ class SLAM:
         self.camera = camera
         self.distance_sensors = distance_sensors
         self.model = Model()
-        self.color_detector = ColorDetector(self.camera)
+        # self.color_detector = ColorDetector(self.camera)
 
     def getDistanceReadings(self):
         readings = {}
@@ -75,7 +75,7 @@ class SLAM:
                         try:
                             inp = inp.split(',')
                             relative_blocked_cells.append((int(inp[0]), int(inp[1])))
-                        except:
+                        except Exception:
                             print("Invalid input")
                     inp = input()
 

@@ -38,9 +38,9 @@ class Position:
 
     def getRelativeXY(self, position):
         orientation = self.getOrientation()
-        if orientation == "N" or orientation == "S":
+        if orientation in ("N", "S"):
             return position[0], position[1]
-        elif orientation == "E" or orientation == "W":
+        elif orientation in ("E", "W"):
             return position[1], position[0]
 
     def getRelativeVAxisError(self, target):
@@ -73,13 +73,13 @@ class Position:
             t_y = position[1]
         dx = t_x - self.x
         dy = t_y - self.y
-        return math.sqrt(dx**2 + dy**2)
+        return math.hypot(dx, dy)
 
     def getClosestPosition(self, positions):
-        return min(positions, key=lambda pos:self.getDistanceTo(pos))
+        return min(positions, key=self.getDistanceTo)
 
     def getFarthestPosition(self, positions):
-        return max(positions, key=lambda pos:self.getDistanceTo(pos))
+        return max(positions, key=self.getDistanceTo)
 
     def getPositionsInRadius(self, positions, radius):
         return [position for position in positions if self.getDistanceTo(position) <= radius]
@@ -88,4 +88,4 @@ class Position:
         return self.getDistanceTo(position) <= radius
 
     def getPositionsSortedByDistance(self, positions):
-        return sorted(positions, key=lambda pos:self.getDistanceTo(pos))
+        return sorted(positions, key=self.getDistanceTo)

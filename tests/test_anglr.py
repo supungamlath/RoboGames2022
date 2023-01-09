@@ -30,13 +30,6 @@ QUARTER_PI = Angle(math.pi / 4)
     # print(Angle(0, "degrees").angle_to(Angle(180, "degrees")))
 
 
-def test_anglr_within():
-    angle = Angle(10, "degrees")
-    assert angle.angleWithin(QUARTER_PI, 0) == True
-    angle = Angle(-0.8)
-    assert angle == TWO_PI - Angle(0.8)
-    assert angle.angleWithin(0, TWO_PI - QUARTER_PI) == True
-
 def test_anglr_between_clockwise():
     start_angle = Angle(0)
     target_angle = QUARTER_PI

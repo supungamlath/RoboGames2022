@@ -98,7 +98,7 @@ class Maze:
     and "cross-axis" is the offset in the perpendicular direction (left) to the given direction.
     """
     @staticmethod
-    def getCellInOffsetDirection(cell, direction, offset={"parallel-axis":0, "cross-axis":0}):
+    def getCellInOffsetDirection(cell, direction, offset):
         if direction == "N":
             return (cell[0] - offset["parallel-axis"], cell[1] - offset["cross-axis"])
         elif direction == "E":

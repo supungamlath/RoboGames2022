@@ -141,7 +141,7 @@ class PuckController:
         logging.info("Going foward")
         start_time = self.time
         ideal_position = Maze.mazeCellToWorldCoords(target_cell)
-        stop_target, centerline = self.position.getRelativeXY(ideal_position)
+        stop_target, _ = self.position.getRelativeXY(ideal_position)
 
         def shouldStop(start_time):
             if self.time - start_time > MOVEMENT_TIMEOUT:

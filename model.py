@@ -21,7 +21,7 @@ class Model:
         self.classifier = ClassifierChain(
             classifier = RandomForestClassifier(),
             require_dense = [False, True],
-            order=[i for i in range(len(self.labels))]
+            order= list(range(len(self.labels)))
         )
         self.trainModel()
         self.testModel()
@@ -32,7 +32,7 @@ class Model:
         x = df[self.features]
         y = df[["blocked_cells"]]
         data = []
-        for index, row in y.iterrows():
+        for _, row in y.iterrows():
             b_cells = ast.literal_eval(row["blocked_cells"])
             c_row = []
             for c in self.labels:
@@ -50,11 +50,11 @@ class Model:
 
     def checkDataSet(self):
         df = pandas.read_csv('training_dataset.csv')
-        x = df[self.features]
+        # x = df[self.features]
         df["blocked_cells"] = df["blocked_cells"].apply(ast.literal_eval)
         y = df[["blocked_cells"]]
         data = []
-        for index, row in y.iterrows():
+        for _, row in y.iterrows():
             c_row = []
             for c in self.labels:
                 if c in row["blocked_cells"]:
@@ -66,7 +66,7 @@ class Model:
         counts = pandas.DataFrame(y.groupby(list(y.columns)).size(), columns=['count']).reset_index()
         print(counts)
 
-    def generateSampleRecord(self, high_sensors=[], blocked_cells=[]):
+    def generateSampleRecord(self, high_sensors, blocked_cells):
         sensor_names = ["front-right", "right-corner", "right", "rear-right", "rear-left", "left", "left-corner", "front-left"]
 
         with open("training_dataset.csv", "a+", newline="") as file:
@@ -103,9 +103,9 @@ class Model:
         x_predict = np.array([x_predict])
         y_result = self.classifier.predict(x_predict)
         results = []
-        for i in range(len(self.labels)):
+        for i, label in enumerate(self.labels):
             if y_result[0, i] == 1.0:
-                results.append(self.labels[i])
+                results.append(label)
         return results
 
 if __name__ == '__main__':

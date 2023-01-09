@@ -26,6 +26,7 @@ class Game:
         self.rupees = 0
         self.target_exchange = None
         self.target_drop = None
+        self.time = 0
         self.exchanges_changed = False
 
     def setData(self, current_cell, money_cells, exchange_cells, exchange_rates, rupees, dollars, time):
@@ -78,9 +79,8 @@ class Game:
 
     def getReallyCloseDrops(self, cells):
         for cell in cells:
-            if Maze.getManhattanDistance(self.current_cell, cell) <= REALLY_CLOSE_RADIUS:
-                if self.maze.getPathLength(self.current_cell, cell) <= REALLY_CLOSE_RADIUS:
-                    return cell
+            if Maze.getManhattanDistance(self.current_cell, cell) <= REALLY_CLOSE_RADIUS and self.maze.getPathLength(self.current_cell, cell) <= REALLY_CLOSE_RADIUS:
+                return cell
         return None
 
     def getGoal(self):
