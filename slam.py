@@ -29,8 +29,8 @@ class SLAM:
         valid_colors = ["yellow", "olive"]
         return self.color_detector.testColorInImageRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
 
-    """Returns `True` if sensor reading of the given sensor is greater than `CLOSE_PROXIMITY_THRESHOLD`""" 
     def isObjectInProximity(self, sensor_name):
+        """Returns `True` if sensor reading of the given sensor is greater than `CLOSE_PROXIMITY_THRESHOLD`""" 
         return PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
 
     def isObjectInMinProximity(self, sensor_name):
@@ -75,7 +75,7 @@ class SLAM:
                         try:
                             inp = inp.split(',')
                             relative_blocked_cells.append((int(inp[0]), int(inp[1])))
-                        except Exception:
+                        except ValueError:
                             print("Invalid input")
                     inp = input()
 

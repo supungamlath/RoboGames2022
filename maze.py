@@ -91,14 +91,15 @@ class Maze:
         elif direction == "W":
             return (cell[0], cell[1] - offset)
 
-    """
-    Returns the cell in the given direction and offset from the given cell. 
-    The offset is a dictionary with the keys "parallel-axis" and "cross-axis".
-    "parallel-axis" is the offset in the positive (infront) direction of the given direction, 
-    and "cross-axis" is the offset in the perpendicular direction (left) to the given direction.
-    """
+
     @staticmethod
     def getCellInOffsetDirection(cell, direction, offset):
+        """
+        Returns the cell in the given direction and offset from the given cell. 
+        The offset is a dictionary with the keys "parallel-axis" and "cross-axis".
+        "parallel-axis" is the offset in the positive (infront) direction of the given direction, 
+        and "cross-axis" is the offset in the perpendicular direction (left) to the given direction.
+        """
         if direction == "N":
             return (cell[0] - offset["parallel-axis"], cell[1] - offset["cross-axis"])
         elif direction == "E":

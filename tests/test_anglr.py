@@ -88,7 +88,6 @@ def test_direction_turns():
     assert expected_bearing == Angle(180, "degrees")
 
 if __name__ == '__main__':
-    test_anglr_within()
     test_anglr_between_clockwise()
     test_anglr_between_counter_clockwise()
     test_direction_turns()

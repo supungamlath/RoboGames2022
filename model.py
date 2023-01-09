@@ -66,7 +66,8 @@ class Model:
         counts = pandas.DataFrame(y.groupby(list(y.columns)).size(), columns=['count']).reset_index()
         print(counts)
 
-    def generateSampleRecord(self, high_sensors, blocked_cells):
+    @staticmethod
+    def generateSampleRecord(high_sensors, blocked_cells):
         sensor_names = ["front-right", "right-corner", "right", "rear-right", "rear-left", "left", "left-corner", "front-left"]
 
         with open("training_dataset.csv", "a+", newline="") as file:
@@ -110,21 +111,21 @@ class Model:
 
 if __name__ == '__main__':
     model = Model()
-    # model.generateSampleRecord(["front-left", "front-right"], [(3, 1), (3, -1), (3, 0)])
-    # model.generateSampleRecord(["left", "right"], [(0, -3), (0, 3)])
-    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, 2), (3, -2)])
-    # model.generateSampleRecord(["front-left", "front-right", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, -2)])
-    # model.generateSampleRecord(["front-left", "front-right", "left-corner"], [(3, 1), (3, -1), (3, 0), (3, 2)])
-    # model.generateSampleRecord(["front-left", "front-right", "right-corner", "right"], [(3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
-    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (0, 3), (1, 3), (2, 3)])
-    # model.generateSampleRecord(["front-left", "front-right", "right"], [(3, 1), (3, -1), (3, 0), (0, -3)])
-    # model.generateSampleRecord(["front-left", "front-right", "left"], [(3, 1), (3, -1), (3, 0), (0, 3)])
-    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "right"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
-    # model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, 3), (1, 3), (2, 3)])
-    # model.generateSampleRecord(["left-corner", "left"], [(2, 3), (1, 3), (0, 3)])
-    # model.generateSampleRecord(["right-corner", "right"], [(2, -3), (1, -3), (0, -3)])
-    # model.generateSampleRecord(["front-left"], [(3, 1)])
-    # model.generateSampleRecord(["front-right"], [(3, -1)])
-    # model.generateSampleRecord(["left-corner"], [(2, 2)])
-    # model.generateSampleRecord(["right-corner"], [(2, -2)])
-    # model.checkDataSet()
+    # Model.generateSampleRecord(["front-left", "front-right"], [(3, 1), (3, -1), (3, 0)])
+    # Model.generateSampleRecord(["left", "right"], [(0, -3), (0, 3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, 2), (3, -2)])
+    # Model.generateSampleRecord(["front-left", "front-right", "right-corner"], [(3, 1), (3, -1), (3, 0), (3, -2)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left-corner"], [(3, 1), (3, -1), (3, 0), (3, 2)])
+    # Model.generateSampleRecord(["front-left", "front-right", "right-corner", "right"], [(3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (0, 3), (1, 3), (2, 3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "right"], [(3, 1), (3, -1), (3, 0), (0, -3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left"], [(3, 1), (3, -1), (3, 0), (0, 3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "right"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, -3), (1, -3), (2, -3)])
+    # Model.generateSampleRecord(["front-left", "front-right", "left-corner", "right-corner", "left"], [(3, 2), (3, 1), (3, -1), (3, 0), (3, -2), (0, 3), (1, 3), (2, 3)])
+    # Model.generateSampleRecord(["left-corner", "left"], [(2, 3), (1, 3), (0, 3)])
+    # Model.generateSampleRecord(["right-corner", "right"], [(2, -3), (1, -3), (0, -3)])
+    # Model.generateSampleRecord(["front-left"], [(3, 1)])
+    # Model.generateSampleRecord(["front-right"], [(3, -1)])
+    # Model.generateSampleRecord(["left-corner"], [(2, 2)])
+    # Model.generateSampleRecord(["right-corner"], [(2, -2)])
+    # Model.checkDataSet()

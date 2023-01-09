@@ -1,5 +1,5 @@
-"""Planar angle mathematics module for Python."""
-"""Modified from Anthony Zhang's anglr library"""
+# Planar angle mathematics module for Python
+# Modified from Anthony Zhang's anglr library
 
 import math, numbers
 

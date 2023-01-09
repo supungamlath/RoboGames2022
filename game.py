@@ -63,14 +63,6 @@ class Game:
         max_value_index = final_values.index(max(final_values))
         return self.exchange_cells[max_value_index]
 
-    def getCellsOnRadius(self, cell, radius):
-        cells = []
-        for i in range(-radius, radius + 1):
-            for j in range(-radius, radius + 1):
-                if Maze.getManhattanDistance((0, 0), (i, j)) <= radius:
-                    cells.append((cell[0] + i, cell[1] + j))
-        return cells
-
     def isAtCell(self, cell):
         return Maze.getManhattanDistance(self.current_cell, cell) <= POINT_RADIUS
 

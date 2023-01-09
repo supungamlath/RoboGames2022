@@ -18,6 +18,7 @@ def test_houghlines():
         # Load the image and convert it to HSV color space
         image = cv2.imread(image_path)
         image, line_distances = cd.findBlackLinesInGreenBg(image)
+        print(line_distances)
         # cd.showImage(image)
 
 if __name__ == "__main__":
