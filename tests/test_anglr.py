@@ -10,26 +10,6 @@ PI = Angle(math.pi)
 HALF_PI = Angle(math.pi / 2)
 QUARTER_PI = Angle(math.pi / 4)
 
-
-# def test_anglr():
-    # print(Angle(pi / 6) + Angle(2 * pi / 3))
-    # print(x * 2 + Angle(3 * pi / 4) / 4 + 5 * Angle(pi / 3))
-    # print(-abs(+Angle(pi)))
-    # print(round(Angle(-75.87)))
-    # print(Angle(-4.3) <= Angle(pi / 4) > Angle(0.118) == Angle(0.118))
-    # print(Angle(-870.3, "gradians").normalized())
-    # print(Angle(-870.3, "gradians").normalized(0)) # same as above
-    # print(Angle(-870.3, "gradians").normalized(0, 2 * pi)) # same as above
-    # print(Angle(-870.3, "gradians").normalized(-pi, pi))
-    # print(Angle(-870.3, "gradians").normalized(-pi, 0))
-    # print(Angle(1, "degrees").angle_between_clockwise(Angle(0, "degrees")))
-    # print(Angle(1, "degrees").angle_between(Angle(0, "degrees")))
-    # print(Angle(0, "degrees").angle_within(Angle(-45, "degrees"), Angle(45, "degrees")))
-    # print(Angle(-1, "degrees").angle_within(Angle(-1, "degrees"), Angle(1, "degrees"), strictly_within=True))
-    # print(Angle(-1, "degrees").angle_to(Angle(180, "degrees")))
-    # print(Angle(0, "degrees").angle_to(Angle(180, "degrees")))
-
-
 def test_anglr_between_clockwise():
     start_angle = Angle(0)
     target_angle = QUARTER_PI

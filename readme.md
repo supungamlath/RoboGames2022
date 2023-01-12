@@ -1,7 +1,7 @@
 # Dave Controller
 
-This is the controller code for Dave, an E-puck robot simulated on Webots 2022 simulator.
-The goal of the challenge is to collect as many rupees as possible in the shortest time and convert them into dollars by reaching designated goals in a maze.
+This is the controller code for an E-puck robot simulated on Webots 2022 simulator.
+The goal of the challenge is to collect as many rupees as possible in the shortest time and convert them into dollars by reaching designated goals in an unknown maze.
 
 ## Requirements
 
