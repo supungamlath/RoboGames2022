@@ -17,6 +17,13 @@ class SLAM:
         self.model = Model()
         # self.color_detector = ColorDetector(self.camera)
 
+    def isBallInCameraView(self):
+        valid_colors = ["yellow", "olive"]
+        return self.color_detector.testColorInImageRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
+
+    def saveImage(self, maze_coord, orientation, is_not_facing_wall):
+        self.camera.saveImage("images\\" + str(maze_coord) + orientation + str(is_not_facing_wall) + ".png", 100)
+
     def getDistanceReadings(self):
         readings = {}
         for sensor_name in self.distance_sensors:
@@ -25,10 +32,6 @@ class SLAM:
             readings[sensor_name] = reading
         return readings
     
-    def isBallInCameraView(self):
-        valid_colors = ["yellow", "olive"]
-        return self.color_detector.testColorInImageRow(valid_colors, CAMERA_TEST_PIXEL_ROW)
-
     def isObjectInProximity(self, sensor_name):
         """Returns `True` if sensor reading of the given sensor is greater than `CLOSE_PROXIMITY_THRESHOLD`""" 
         return PROXIMITY_THRESHOLD < self.distance_sensors[sensor_name].getValue() 
@@ -48,9 +51,6 @@ class SLAM:
             offsets = {"parallel-axis":2, "cross-axis":0}
         off_cell = self.maze.getCellInOffsetDirection(cell, orientation, offsets)
         self.maze.addDataToMaze(off_cell, 0)
-
-    def saveImage(self, maze_coord, orientation, is_not_facing_wall):
-        self.camera.saveImage("images\\" + str(maze_coord) + orientation + str(is_not_facing_wall) + ".png", 100)
 
     def setCellAccessible(self, cell):
         self.maze.addDataIfUnknown(cell, 1, fill_size = 0)

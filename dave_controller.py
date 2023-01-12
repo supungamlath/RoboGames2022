@@ -1,12 +1,12 @@
 """
-Controller code for an E-puck robot simulated on Webots 2022 simulator.
+Controller code for an E-puck robot simulated on Webots R2022b simulator.
 Submission for IESL RoboGames 2022 competition.
 """
 __author__      = "Supun Gamlath"
 __copyright__   = "Copyright 2023, MIT License"
 
+# Comment out the correct option from following if the controller of the robot is set to <extern>
 # For Windows
-# Comment out the following lines if the controller field of the robot is set to <extern>
 # import sys
 # Python version - 3.9
 # sys.path.append("C:\\Program Files\\Webots\\lib\\controller\\python39\\") 
@@ -26,6 +26,7 @@ from slam import SLAM
 from game import Game
 
 # Logging Configuration
+# Set logging level to DEBUG for more detailed log files
 logging.basicConfig(filename="logs/log-" + str(round(time.time())) + ".txt", level=logging.INFO, format="%(asctime)s : %(levelname)s : %(message)s")
 logging.logProcesses = 0
 logging.logThreads = 0
@@ -128,7 +129,7 @@ class PuckController:
 
     ### Motion Functions ###
     def turn(self, direction):
-        logging.info("Turning " + direction)
+        logging.debug("Turning " + direction)
         start_time = self.time
         if direction == "right":
             turn_dir = 1
@@ -154,7 +155,7 @@ class PuckController:
                 break
 
     def goFoward(self, target_cell):
-        logging.info("Going foward")
+        logging.debug("Going foward")
         start_time = self.time
         ideal_position = Maze.mazeCellToWorldCoords(target_cell)
         stop_target, _ = self.position.getRelativeXY(ideal_position)
@@ -184,7 +185,7 @@ class PuckController:
         return True
 
     def moveToNextCellWithoutReverse(self, current_cell, next_cell):
-        logging.info("Moving from " + str(current_cell) + " to " + str(next_cell))
+        logging.debug("Moving from " + str(current_cell) + " to " + str(next_cell))
         if self.orientation == "N":
             v_diff = next_cell[0] - current_cell[0]
             h_diff = next_cell[1] - current_cell[1]
@@ -240,9 +241,9 @@ class PuckController:
 
             logging.debug("Current cell - " + str(current_cell))
             if was_move_successful:
-                logging.info("Moved to cell " + str(next_cell))
+                logging.debug("Moved to cell " + str(next_cell))
             else:
-                logging.info("Cannot move to cell " + str(next_cell))
+                logging.debug("Cannot move to cell " + str(next_cell))
 
             self.slam.mapWallsAutomatically(current_cell, self.orientation)
 

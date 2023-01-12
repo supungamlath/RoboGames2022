@@ -1,13 +1,6 @@
 from maze import Maze
 import logging
 
-###
-# Test 1
-# Time - 40 mins
-# Dollars - 91.640
-# Rupees - 3435
-###
-
 WANDER_TIME = 210
 POINT_RADIUS = 2 # Max - 0.085 / 0.02
 REALLY_CLOSE_RADIUS = 20
@@ -31,9 +24,6 @@ class Game:
         self.exchanges_changed = False
 
     def setData(self, current_cell, money_cells, exchange_cells, exchange_rates, rupees, dollars, time):
-        logging.debug("Dollars " + str(dollars))
-        logging.debug("Rupees: " + str(rupees))
-        logging.debug("Game time: " + str(time))
         self.current_cell = current_cell
         self.money_cells = money_cells
         self.rupees = rupees
@@ -42,10 +32,11 @@ class Game:
         self.exchange_cells = exchange_cells
         self.exchange_rates = exchange_rates
         if self.exchanges_changed:
-            print("Exchange rates: " + str(exchange_rates))
-            print(f"Dollars: {dollars}")
-            print(f"Rupees: {rupees}")
-            print(f"Game time: {(time/60):.2f} mins")
+            logging.info(f"Exchange rates (B L T R): {str(exchange_rates)}")
+            logging.info(f"Dollars: {dollars}")
+            logging.info(f"Rupees: {rupees}")
+            logging.info(f"Game time: {(time/60):.2f} mins")
+            print(f"Game time: {(time/60):.2f} mins    Dollars: {dollars:.3f}    Rupees: {rupees}")
 
     def getBestExchange(self):
         min_rate = min(self.exchange_rates)
@@ -67,21 +58,20 @@ class Game:
             if self.isInRadius(exchange, REALLY_CLOSE_RADIUS):
                 return exchange
 
-    def isAtCell(self, cell):
-        return Maze.getManhattanDistance(self.current_cell, cell) <= POINT_RADIUS
-
-    def isInRadius(self, cell, radius):
-        return Maze.getManhattanDistance(self.current_cell, cell) <= radius
-
     def getReallyCloseDrops(self, cells):
         for cell in cells:
             if Maze.getManhattanDistance(self.current_cell, cell) <= REALLY_CLOSE_RADIUS and self.maze.getPathLength(self.current_cell, cell) <= REALLY_CLOSE_RADIUS:
                 return cell
         return None
 
+    def isAtCell(self, cell):
+        return Maze.getManhattanDistance(self.current_cell, cell) <= POINT_RADIUS
+
+    def isInRadius(self, cell, radius):
+        return Maze.getManhattanDistance(self.current_cell, cell) <= radius
+
     def getGoal(self):
-        logging.info("State: " + str(self.state))
-        # print("State: " + str(self.state))
+        logging.debug("State: " + str(self.state))
         if self.state == 1:
             if not self.target_exchange:
                 self.target_exchange = self.getBestExchange()
