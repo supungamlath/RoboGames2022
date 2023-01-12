@@ -1,6 +1,21 @@
-import sys
-# Python version should be 3.9.5
-sys.path.append("E:\\Program Files\\Webots\\lib\\controller\\python39\\") 
+"""
+Controller code for an E-puck robot simulated on Webots 2022 simulator.
+Submission for IESL RoboGames 2022 competition.
+"""
+__author__      = "Supun Gamlath"
+__copyright__   = "Copyright 2023, MIT License"
+
+# For Windows
+# Comment out the following lines if the controller field of the robot is set to <extern>
+# import sys
+# Python version - 3.9
+# sys.path.append("C:\\Program Files\\Webots\\lib\\controller\\python39\\") 
+# Python version - 3.10
+# sys.path.append("C:\\Program Files\\Webots\\lib\\controller\\python310\\") 
+
+# For Linux
+# Execute the 'run' command of the Makefile as follows:
+# make run
 
 from controller import Robot
 import json, math, logging, time
@@ -10,7 +25,8 @@ from maze import Maze
 from slam import SLAM
 from game import Game
 
-logging.basicConfig(filename="logs/log-" + str(round(time.time())) + ".txt", level=logging.DEBUG, format="%(asctime)s : %(levelname)s : %(message)s")
+# Logging Configuration
+logging.basicConfig(filename="logs/log-" + str(round(time.time())) + ".txt", level=logging.INFO, format="%(asctime)s : %(levelname)s : %(message)s")
 logging.logProcesses = 0
 logging.logThreads = 0
 
@@ -208,6 +224,7 @@ class PuckController:
     def run(self):
         logging.info("Starting Robot")
         print("Starting Robot")
+        
         while True:
             while not self.updateRobotData():
                 logging.info("Waiting for transmitter to connect")
