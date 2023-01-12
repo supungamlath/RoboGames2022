@@ -8,6 +8,7 @@ The goal of the challenge is to collect as many rupees as possible in the shorte
 To run this code, you will need the following:
 
 Python 3.9.5
+
 The following Python libraries:
 [OpenCV](https://opencv.org/)
 [Scikit-learn](https://scikit-learn.org/)
@@ -42,20 +43,6 @@ The code is structured as follows:
 `color_detector.py` contains the code that is used to detect objects from camera images.
 
 `game.py` contains the logic for selecting exchanges and money drops in the optimal order.
-
-## Approach
-
-To solve the challenge, Dave's controller uses the following approach:
-
-Receive data from the supervisor robot's emitter, including the location and exchange rate of the goals, the location of rupees, and Dave's current rupee and dollar balances.
-
-Determine the goal with the highest exchange rate and plan a path to reach it.
-
-Collect rupees along the way, making sure to keep track of Dave's rupee balance and pay taxes as necessary.
-
-When Dave reaches the goal, convert all of his rupees into dollars at the current exchange rate.
-
-Repeat the process until indefinitely.
 
 ## License
 
